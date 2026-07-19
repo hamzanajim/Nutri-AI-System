@@ -1,0 +1,1 @@
+- [NutriAI architecture](nutriai-arch.md) — JWT auth, Drizzle/Postgres, OpenAPI codegen, Expo mobile; all built and typechecking clean.

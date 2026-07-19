@@ -3,13 +3,30 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: NutriAI — AI Nutrition Assistant API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: profiles
+    description: User profile operations
+  - name: foods
+    description: Food database operations
+  - name: meals
+    description: Meal logging operations
+  - name: inventory
+    description: Food inventory operations
+  - name: grocery
+    description: Grocery list operations
+  - name: nutrition
+    description: Nutrition calculation operations
+  - name: ai
+    description: AI-powered operations
+
 paths:
   /healthz:
     get:
@@ -24,7 +41,779 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Auth ───────────────────────────────────────────────────────────────────
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid input or email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Profiles ────────────────────────────────────────────────────────────────
+
+  /profiles/me:
+    get:
+      operationId: getMyProfile
+      tags: [profiles]
+      summary: Get the current user's profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createMyProfile
+      tags: [profiles]
+      summary: Create the current user's profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileInput"
+      responses:
+        "201":
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateMyProfile
+      tags: [profiles]
+      summary: Update the current user's profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Foods ───────────────────────────────────────────────────────────────────
+
+  /foods:
+    get:
+      operationId: searchFoods
+      tags: [foods]
+      summary: Search the food database
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          description: Search query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of foods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Food"
+    post:
+      operationId: createFood
+      tags: [foods]
+      summary: Create a custom food entry
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FoodInput"
+      responses:
+        "201":
+          description: Food created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Food"
+
+  /foods/{id}:
+    get:
+      operationId: getFood
+      tags: [foods]
+      summary: Get a food by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Food details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Food"
+        "404":
+          description: Food not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Meals ───────────────────────────────────────────────────────────────────
+
+  /meals:
+    get:
+      operationId: listMeals
+      tags: [meals]
+      summary: List meals for the current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          description: Filter by date (YYYY-MM-DD)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of meals with items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MealWithItems"
+    post:
+      operationId: createMeal
+      tags: [meals]
+      summary: Log a new meal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealInput"
+      responses:
+        "201":
+          description: Meal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealWithItems"
+
+  /meals/{id}:
+    get:
+      operationId: getMeal
+      tags: [meals]
+      summary: Get a meal by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Meal with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealWithItems"
+        "404":
+          description: Meal not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateMeal
+      tags: [meals]
+      summary: Update a meal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealUpdate"
+      responses:
+        "200":
+          description: Meal updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealWithItems"
+        "404":
+          description: Meal not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteMeal
+      tags: [meals]
+      summary: Delete a meal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Meal deleted
+
+  /meals/{mealId}/items:
+    post:
+      operationId: addMealItem
+      tags: [meals]
+      summary: Add a food item to a meal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mealId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealItemInput"
+      responses:
+        "201":
+          description: Meal item added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealItem"
+
+  /meals/{mealId}/items/{itemId}:
+    delete:
+      operationId: removeMealItem
+      tags: [meals]
+      summary: Remove a food item from a meal
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mealId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Meal item removed
+
+  # ─── Inventory ───────────────────────────────────────────────────────────────
+
+  /inventory:
+    get:
+      operationId: listInventory
+      tags: [inventory]
+      summary: List the current user's food inventory
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of inventory items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+    post:
+      operationId: createInventoryItem
+      tags: [inventory]
+      summary: Add an item to inventory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryItemInput"
+      responses:
+        "201":
+          description: Inventory item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+
+  /inventory/{id}:
+    get:
+      operationId: getInventoryItem
+      tags: [inventory]
+      summary: Get an inventory item
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Inventory item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateInventoryItem
+      tags: [inventory]
+      summary: Update an inventory item
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryItemUpdate"
+      responses:
+        "200":
+          description: Inventory item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+    delete:
+      operationId: deleteInventoryItem
+      tags: [inventory]
+      summary: Remove an item from inventory
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Grocery Lists ────────────────────────────────────────────────────────────
+
+  /grocery-lists:
+    get:
+      operationId: listGroceryLists
+      tags: [grocery]
+      summary: List the current user's grocery lists
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of grocery lists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GroceryList"
+    post:
+      operationId: createGroceryList
+      tags: [grocery]
+      summary: Create a new grocery list
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroceryListInput"
+      responses:
+        "201":
+          description: Grocery list created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryList"
+
+  /grocery-lists/{id}:
+    get:
+      operationId: getGroceryList
+      tags: [grocery]
+      summary: Get a grocery list with its items
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Grocery list with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryListWithItems"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateGroceryList
+      tags: [grocery]
+      summary: Update a grocery list
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroceryListUpdate"
+      responses:
+        "200":
+          description: Grocery list updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryList"
+    delete:
+      operationId: deleteGroceryList
+      tags: [grocery]
+      summary: Delete a grocery list
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /grocery-lists/{listId}/items:
+    post:
+      operationId: addGroceryListItem
+      tags: [grocery]
+      summary: Add an item to a grocery list
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroceryListItemInput"
+      responses:
+        "201":
+          description: Item added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryListItem"
+
+  /grocery-lists/{listId}/items/{itemId}:
+    patch:
+      operationId: updateGroceryListItem
+      tags: [grocery]
+      summary: Update a grocery list item (e.g. check/uncheck)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroceryListItemUpdate"
+      responses:
+        "200":
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryListItem"
+    delete:
+      operationId: deleteGroceryListItem
+      tags: [grocery]
+      summary: Remove an item from a grocery list
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: listId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Nutrition ────────────────────────────────────────────────────────────────
+
+  /nutrition/daily:
+    get:
+      operationId: getDailyNutrition
+      tags: [nutrition]
+      summary: Get daily nutrition totals
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          description: Date to calculate for (YYYY-MM-DD). Defaults to today.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Daily nutrition summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyNutrition"
+
+  /nutrition/targets:
+    get:
+      operationId: getNutritionTargets
+      tags: [nutrition]
+      summary: Get personalized daily nutrition targets based on the user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Nutrition targets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionTargets"
+        "404":
+          description: Profile not found — targets cannot be calculated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── AI ──────────────────────────────────────────────────────────────────────
+
+  /ai/analyze:
+    post:
+      operationId: analyzeMeal
+      tags: [ai]
+      summary: Analyze a meal description and get nutritional information
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealAnalysisInput"
+      responses:
+        "200":
+          description: AI meal analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealAnalysisResult"
+
+  /ai/chat:
+    post:
+      operationId: nutritionChat
+      tags: [ai]
+      summary: Chat with the AI nutrition assistant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NutritionChatInput"
+      responses:
+        "200":
+          description: AI chat response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatReply"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +823,826 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - createdAt
+
+    RegisterInput:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 8
+      required:
+        - email
+        - password
+
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - token
+        - user
+
+    # ── Profile ───────────────────────────────────────────────────────────────
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: ["string", "null"]
+        age:
+          type: ["integer", "null"]
+        gender:
+          type: ["string", "null"]
+          enum: [male, female, other, null]
+        heightCm:
+          type: ["number", "null"]
+        weightKg:
+          type: ["number", "null"]
+        goalWeight:
+          type: ["number", "null"]
+        fitnessGoal:
+          type: ["string", "null"]
+          enum: [lose_fat, maintain, gain_muscle, improve_health, null]
+        activityLevel:
+          type: ["string", "null"]
+          enum: [sedentary, lightly_active, moderately_active, very_active, extremely_active, null]
+        workoutFrequency:
+          type: ["integer", "null"]
+        workoutTypes:
+          type: array
+          items:
+            type: string
+        mealFrequency:
+          type: ["integer", "null"]
+        shoppingFrequency:
+          type: ["string", "null"]
+          enum: [weekly, biweekly, monthly, custom, null]
+        dietPreferences:
+          type: array
+          items:
+            type: string
+        favoriteFoods:
+          type: array
+          items:
+            type: string
+        foodsToAvoid:
+          type: array
+          items:
+            type: string
+        allergies:
+          type: array
+          items:
+            type: string
+        foodIntolerances:
+          type: array
+          items:
+            type: string
+        healthConditions:
+          type: array
+          items:
+            type: string
+        digestiveIssues:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - workoutTypes
+        - dietPreferences
+        - favoriteFoods
+        - foodsToAvoid
+        - allergies
+        - foodIntolerances
+        - healthConditions
+        - digestiveIssues
+        - createdAt
+        - updatedAt
+
+    ProfileInput:
+      type: object
+      properties:
+        name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [male, female, other]
+        heightCm:
+          type: number
+        weightKg:
+          type: number
+        goalWeight:
+          type: number
+        fitnessGoal:
+          type: string
+          enum: [lose_fat, maintain, gain_muscle, improve_health]
+        activityLevel:
+          type: string
+          enum: [sedentary, lightly_active, moderately_active, very_active, extremely_active]
+        workoutFrequency:
+          type: integer
+          minimum: 0
+          maximum: 7
+        workoutTypes:
+          type: array
+          items:
+            type: string
+        mealFrequency:
+          type: integer
+          minimum: 1
+          maximum: 10
+        shoppingFrequency:
+          type: string
+          enum: [weekly, biweekly, monthly, custom]
+        dietPreferences:
+          type: array
+          items:
+            type: string
+        favoriteFoods:
+          type: array
+          items:
+            type: string
+        foodsToAvoid:
+          type: array
+          items:
+            type: string
+        allergies:
+          type: array
+          items:
+            type: string
+        foodIntolerances:
+          type: array
+          items:
+            type: string
+        healthConditions:
+          type: array
+          items:
+            type: string
+        digestiveIssues:
+          type: array
+          items:
+            type: string
+
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [male, female, other]
+        heightCm:
+          type: number
+        weightKg:
+          type: number
+        goalWeight:
+          type: number
+        fitnessGoal:
+          type: string
+          enum: [lose_fat, maintain, gain_muscle, improve_health]
+        activityLevel:
+          type: string
+          enum: [sedentary, lightly_active, moderately_active, very_active, extremely_active]
+        workoutFrequency:
+          type: integer
+          minimum: 0
+          maximum: 7
+        workoutTypes:
+          type: array
+          items:
+            type: string
+        mealFrequency:
+          type: integer
+          minimum: 1
+          maximum: 10
+        shoppingFrequency:
+          type: string
+          enum: [weekly, biweekly, monthly, custom]
+        dietPreferences:
+          type: array
+          items:
+            type: string
+        favoriteFoods:
+          type: array
+          items:
+            type: string
+        foodsToAvoid:
+          type: array
+          items:
+            type: string
+        allergies:
+          type: array
+          items:
+            type: string
+        foodIntolerances:
+          type: array
+          items:
+            type: string
+        healthConditions:
+          type: array
+          items:
+            type: string
+        digestiveIssues:
+          type: array
+          items:
+            type: string
+
+    # ── Food ──────────────────────────────────────────────────────────────────
+
+    Food:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        brand:
+          type: ["string", "null"]
+        caloriesPer100g:
+          type: number
+        proteinPer100g:
+          type: number
+        carbsPer100g:
+          type: number
+        fatPer100g:
+          type: number
+        fiberPer100g:
+          type: ["number", "null"]
+        servingSize:
+          type: ["number", "null"]
+        servingUnit:
+          type: ["string", "null"]
+        isCustom:
+          type: boolean
+      required:
+        - id
+        - name
+        - caloriesPer100g
+        - proteinPer100g
+        - carbsPer100g
+        - fatPer100g
+        - isCustom
+
+    FoodInput:
+      type: object
+      properties:
+        name:
+          type: string
+        brand:
+          type: string
+        caloriesPer100g:
+          type: number
+        proteinPer100g:
+          type: number
+        carbsPer100g:
+          type: number
+        fatPer100g:
+          type: number
+        fiberPer100g:
+          type: number
+        servingSize:
+          type: number
+        servingUnit:
+          type: string
+      required:
+        - name
+        - caloriesPer100g
+        - proteinPer100g
+        - carbsPer100g
+        - fatPer100g
+
+    # ── Meals ─────────────────────────────────────────────────────────────────
+
+    MealItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        mealId:
+          type: integer
+        foodId:
+          type: ["integer", "null"]
+        foodName:
+          type: string
+        quantityG:
+          type: number
+        calories:
+          type: number
+        proteinG:
+          type: number
+        carbsG:
+          type: number
+        fatG:
+          type: number
+        fiberG:
+          type: ["number", "null"]
+      required:
+        - id
+        - mealId
+        - foodName
+        - quantityG
+        - calories
+        - proteinG
+        - carbsG
+        - fatG
+
+    MealWithItems:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        date:
+          type: string
+          format: date
+        notes:
+          type: ["string", "null"]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealItem"
+        totalCalories:
+          type: number
+        totalProteinG:
+          type: number
+        totalCarbsG:
+          type: number
+        totalFatG:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - mealType
+        - date
+        - items
+        - totalCalories
+        - totalProteinG
+        - totalCarbsG
+        - totalFatG
+        - createdAt
+
+    MealInput:
+      type: object
+      properties:
+        name:
+          type: string
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+      required:
+        - name
+        - mealType
+        - date
+
+    MealUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    MealItemInput:
+      type: object
+      properties:
+        foodId:
+          type: integer
+        foodName:
+          type: string
+        quantityG:
+          type: number
+        caloriesPer100g:
+          type: number
+        proteinPer100g:
+          type: number
+        carbsPer100g:
+          type: number
+        fatPer100g:
+          type: number
+        fiberPer100g:
+          type: number
+      required:
+        - foodName
+        - quantityG
+        - caloriesPer100g
+        - proteinPer100g
+        - carbsPer100g
+        - fatPer100g
+
+    # ── Inventory ─────────────────────────────────────────────────────────────
+
+    InventoryItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        foodId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+        expiryDate:
+          type: ["string", "null"]
+          format: date
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - quantity
+        - unit
+        - createdAt
+        - updatedAt
+
+    InventoryItemInput:
+      type: object
+      properties:
+        foodId:
+          type: integer
+        name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+        expiryDate:
+          type: string
+          format: date
+        notes:
+          type: string
+      required:
+        - name
+        - quantity
+        - unit
+
+    InventoryItemUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+        expiryDate:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    # ── Grocery Lists ─────────────────────────────────────────────────────────
+
+    GroceryListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        listId:
+          type: integer
+        name:
+          type: string
+        quantity:
+          type: ["number", "null"]
+        unit:
+          type: ["string", "null"]
+        checked:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+      required:
+        - id
+        - listId
+        - name
+        - checked
+
+    GroceryList:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - createdAt
+        - updatedAt
+
+    GroceryListWithItems:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroceryListItem"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - items
+        - createdAt
+        - updatedAt
+
+    GroceryListInput:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    GroceryListUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+
+    GroceryListItemInput:
+      type: object
+      properties:
+        name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+        notes:
+          type: string
+      required:
+        - name
+
+    GroceryListItemUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+        checked:
+          type: boolean
+        notes:
+          type: string
+
+    # ── Nutrition ─────────────────────────────────────────────────────────────
+
+    DailyNutrition:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        totalCalories:
+          type: number
+        totalProteinG:
+          type: number
+        totalCarbsG:
+          type: number
+        totalFatG:
+          type: number
+        totalFiberG:
+          type: number
+        mealCount:
+          type: integer
+        meals:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealWithItems"
+      required:
+        - date
+        - totalCalories
+        - totalProteinG
+        - totalCarbsG
+        - totalFatG
+        - totalFiberG
+        - mealCount
+        - meals
+
+    NutritionTargets:
+      type: object
+      properties:
+        dailyCalories:
+          type: number
+        proteinG:
+          type: number
+        carbsG:
+          type: number
+        fatG:
+          type: number
+        fiberG:
+          type: number
+        bmr:
+          type: number
+        tdee:
+          type: number
+      required:
+        - dailyCalories
+        - proteinG
+        - carbsG
+        - fatG
+        - fiberG
+        - bmr
+        - tdee
+
+    # ── AI ────────────────────────────────────────────────────────────────────
+
+    MealAnalysisInput:
+      type: object
+      properties:
+        description:
+          type: string
+      required:
+        - description
+
+    AnalyzedFoodItem:
+      type: object
+      properties:
+        name:
+          type: string
+        estimatedQuantityG:
+          type: number
+        estimatedCalories:
+          type: number
+        estimatedProteinG:
+          type: number
+        estimatedCarbsG:
+          type: number
+        estimatedFatG:
+          type: number
+      required:
+        - name
+        - estimatedQuantityG
+        - estimatedCalories
+        - estimatedProteinG
+        - estimatedCarbsG
+        - estimatedFatG
+
+    MealAnalysisResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyzedFoodItem"
+        totalCalories:
+          type: number
+        totalProteinG:
+          type: number
+        totalCarbsG:
+          type: number
+        totalFatG:
+          type: number
+        notes:
+          type: string
+      required:
+        - items
+        - totalCalories
+        - totalProteinG
+        - totalCarbsG
+        - totalFatG
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    NutritionChatInput:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        includeProfile:
+          type: boolean
+          default: true
+      required:
+        - messages
+
+    ChatReply:
+      type: object
+      properties:
+        message:
+          type: string
+        role:
+          type: string
+          enum: [assistant]
+      required:
+        - message
+        - role
