@@ -1,0 +1,181 @@
+We are entering a Product Polish Sprint.
+
+Do NOT add new features. Focus on improving the existing Meal and Inventory experience until it feels production-ready.
+
+---------------------------------------
+1. INVENTORY SETUP UX
+---------------------------------------
+
+During first-time inventory setup:
+
+Remove the "Selected Items" list at the top.
+
+It is redundant because selected cards already show a checkmark.
+
+The card itself should indicate selection.
+
+When a user taps a food card for the first time:
+
+Immediately ask:
+
+- Quantity
+- Unit (g, kg, pieces, L, mL, etc.)
+- Storage Location
+  • Fridge
+  • Freezer
+  • Pantry
+
+Once saved:
+
+- Mark the card as selected.
+- Show the quantity and storage location directly on the card.
+
+If the user taps the card again:
+
+Open the edit dialog instead of creating another item.
+
+---------------------------------------
+2. INVENTORY IS THE SINGLE SOURCE OF TRUTH
+---------------------------------------
+
+Whenever inventory changes:
+
+Automatically refresh:
+
+- Meal plans
+- Missing ingredient warnings
+- Grocery list
+- Dashboard alerts
+- Nutrition calculations
+
+Example:
+
+User adds Bananas.
+
+The meal planner should immediately recognize Bananas are available.
+
+The "Banana not in inventory" warning should disappear without requiring regeneration.
+
+---------------------------------------
+3. REPLACE MEAL
+---------------------------------------
+
+The Replace button is currently not functioning.
+
+Fix it.
+
+It should regenerate ONLY the selected meal.
+
+Do not regenerate the entire day.
+
+The replacement should:
+
+- Respect nutrition targets
+- Use inventory
+- Avoid repeating proteins
+- Avoid repeating the previous meal
+
+---------------------------------------
+4. DELETE MEAL
+---------------------------------------
+
+Delete Meal is not working.
+
+Deleting should:
+
+- Remove the meal from the database.
+- Refresh the Meals screen immediately.
+- Update Dashboard nutrition.
+- Restore ingredient quantities if the meal had already been logged.
+
+---------------------------------------
+5. BETTER AI VARIETY
+---------------------------------------
+
+The AI still generates very similar meals every day.
+
+Improve the meal generation algorithm.
+
+Rules:
+
+- Avoid repeating the same meal in the same week whenever possible.
+- Do not repeat the same primary protein more than once in a single day unless inventory is limited.
+- Rotate proteins throughout the week:
+  Chicken
+  Salmon
+  Beef
+  Turkey
+  Eggs
+  Fish
+  Plant proteins
+
+Rotate carbohydrates:
+  Rice
+  Potatoes
+  Sweet Potatoes
+  Oats
+  Whole Wheat Pasta
+  Quinoa
+
+Rotate vegetables.
+
+Meals should feel varied and realistic.
+
+---------------------------------------
+6. ONE PRIMARY PROTEIN
+---------------------------------------
+
+Every meal should have exactly ONE primary protein source.
+
+Correct:
+
+Chicken + Rice + Broccoli
+
+Salmon + Potatoes + Asparagus
+
+Beef + Rice + Vegetables
+
+Incorrect:
+
+Chicken + Salmon
+
+Chicken + Beef
+
+Salmon + Tuna
+
+unless explicitly defined by a recipe.
+
+---------------------------------------
+7. SMART INVENTORY MATCHING
+---------------------------------------
+
+Inventory matching must use the inventory database and food IDs, not only food names.
+
+Handle aliases and plural forms correctly.
+
+Examples:
+
+Banana == Bananas
+
+Egg == Eggs
+
+Chicken Breast == Chicken Breast
+
+Do not incorrectly mark existing inventory as missing.
+
+---------------------------------------
+8. TESTING
+---------------------------------------
+
+Before completing this sprint, verify:
+
+✓ Selecting inventory asks for quantity and storage location.
+✓ Editing inventory updates meals immediately.
+✓ Replace Meal works.
+✓ Delete Meal works.
+✓ Missing ingredient detection is accurate.
+✓ Meals are noticeably more varied.
+✓ Every meal has exactly one primary protein.
+✓ Dashboard updates correctly after meal changes.
+
+Do not continue adding new functionality until all of these behaviors are working correctly.

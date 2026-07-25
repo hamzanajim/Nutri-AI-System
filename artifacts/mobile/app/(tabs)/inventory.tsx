@@ -26,6 +26,7 @@ import {
   getSearchFoodsQueryKey,
   useSuggestNutrition,
   getListInventoryQueryKey,
+  getGetDashboardTodayQueryKey,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
@@ -655,9 +656,18 @@ export default function InventoryScreen() {
   const [editingItem, setEditingItem] = useState<InventoryItemData | null>(null);
 
   const { data: rawItems = [], isLoading, refetch } = useListInventory();
-  const createMutation = useCreateInventoryItem({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListInventoryQueryKey() }) } });
-  const updateMutation = useUpdateInventoryItem({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListInventoryQueryKey() }) } });
-  const deleteMutation = useDeleteInventoryItem({ mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListInventoryQueryKey() }) } });
+  // Broadcast inventory changes to every dependent query (meal plans, dashboard)
+  const invalidateAll = useCallback(() => {
+    const today = new Date().toISOString().split('T')[0];
+    qc.invalidateQueries({ queryKey: getListInventoryQueryKey() });
+    // Meal plan ingredients availability depends on inventory — force re-check
+    qc.invalidateQueries({ queryKey: ['meal-plans'] });
+    qc.invalidateQueries({ queryKey: getGetDashboardTodayQueryKey({ date: today }) });
+  }, [qc]);
+
+  const createMutation = useCreateInventoryItem({ mutation: { onSuccess: invalidateAll } });
+  const updateMutation = useUpdateInventoryItem({ mutation: { onSuccess: invalidateAll } });
+  const deleteMutation = useDeleteInventoryItem({ mutation: { onSuccess: invalidateAll } });
 
   const items = rawItems as InventoryItemData[];
 

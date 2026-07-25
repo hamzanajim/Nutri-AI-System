@@ -218,7 +218,7 @@ function EditItemModal({
         <TouchableOpacity style={{ flex: 1, backgroundColor: '#00000040' }} activeOpacity={1} onPress={onClose} />
         <View style={[{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 }]}>
           <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: colors.foreground, marginBottom: 20 }}>
-            Edit — {item?.name}
+            {item?.name}
           </Text>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
             <View style={{ flex: 1 }}>
@@ -456,18 +456,15 @@ export default function InventorySetupScreen() {
   }
 
   function toggleSuggested(suggestion: SuggestedItem) {
-    const name = suggestion.name;
-    const existing = currentSelections.get(name);
-    if (existing) {
-      setSelection(step, name, null);
-    } else {
-      setSelection(step, name, {
-        name: suggestion.name,
-        qty: suggestion.defaultQty,
-        unit: suggestion.unit,
-        storageLocation: suggestion.storageLocation,
-      });
-    }
+    const existing = currentSelections.get(suggestion.name);
+    // Both first tap and re-tap open the edit modal — pre-filled with existing or defaults
+    const item: SelectedItem = existing ?? {
+      name: suggestion.name,
+      qty: suggestion.defaultQty,
+      unit: suggestion.unit,
+      storageLocation: suggestion.storageLocation,
+    };
+    setEditingItem({ stepIdx: step, item });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
@@ -605,27 +602,6 @@ export default function InventorySetupScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Selected items (shown at top if any) */}
-        {stepSelected > 0 && (
-          <View style={[styles.selectedSection, { backgroundColor: currentStep.color + '10', borderColor: currentStep.color + '30' }]}>
-            <Text style={[styles.selectedLabel, { color: currentStep.color }]}>
-              {stepSelected} item{stepSelected !== 1 ? 's' : ''} selected
-            </Text>
-            {Array.from(currentSelections.values()).map((item) => (
-              <View key={item.name} style={[styles.selectedRow, { borderBottomColor: currentStep.color + '20' }]}>
-                <Text style={[styles.selectedName, { color: colors.foreground }]}>{item.name}</Text>
-                <Text style={[styles.selectedQty, { color: currentStep.color }]}>{item.qty} {item.unit}</Text>
-                <TouchableOpacity onPress={() => openEdit(item)} style={styles.selectedAction}>
-                  <Feather name="edit-2" size={14} color={colors.mutedForeground} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => removeItem(item.name)} style={styles.selectedAction}>
-                  <Feather name="x" size={14} color="#ef4444" />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-
         {/* Suggested items grid */}
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>SUGGESTED FOR YOU</Text>
         <View style={styles.suggestionsGrid}>
@@ -654,8 +630,10 @@ export default function InventorySetupScreen() {
                 <Text style={[styles.suggestionName, { color: selected ? currentStep.color : colors.foreground }]} numberOfLines={2}>
                   {suggestion.name}
                 </Text>
-                <Text style={[styles.suggestionQty, { color: colors.mutedForeground }]}>
-                  {suggestion.defaultQty} {suggestion.unit} · {suggestion.storageLocation}
+                <Text style={[styles.suggestionQty, { color: selected ? currentStep.color : colors.mutedForeground }]}>
+                  {selected
+                    ? `${currentSelections.get(suggestion.name)!.qty} ${currentSelections.get(suggestion.name)!.unit} · ${currentSelections.get(suggestion.name)!.storageLocation}`
+                    : `${suggestion.defaultQty} ${suggestion.unit} · ${suggestion.storageLocation}`}
                 </Text>
               </TouchableOpacity>
             );

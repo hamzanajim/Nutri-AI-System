@@ -1,7 +1,7 @@
 /**
  * AI Meal Planner — shared logic for generating and regenerating meal plans.
  */
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, gte } from "drizzle-orm";
 import {
   db,
   mealPlansTable,
@@ -146,6 +146,26 @@ export async function generateMealPlanWithAI(
 ): Promise<typeof mealPlansTable.$inferSelect & { meals: AIMeal[] }> {
   const { profile, inventory, targets } = await buildUserContext(userId);
 
+  // Fetch meal names from the last 7 days for variety context
+  const sevenDaysAgo = new Date(date);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const weekAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+
+  const recentMeals = await db
+    .select({ name: mealPlanMealsTable.name, date: mealPlansTable.date })
+    .from(mealPlanMealsTable)
+    .innerJoin(mealPlansTable, eq(mealPlanMealsTable.planId, mealPlansTable.id))
+    .where(
+      and(
+        eq(mealPlansTable.userId, userId),
+        gte(mealPlansTable.date, weekAgoStr),
+        sql`${mealPlansTable.date} < ${date}`
+      )
+    )
+    .orderBy(desc(mealPlansTable.date));
+
+  const recentMealNames = [...new Set(recentMeals.map((m) => m.name))];
+
   const availableIngredients = inventory
     .filter((i) => Number(i.quantity) > 0)
     .map(
@@ -190,9 +210,10 @@ MANDATORY RULES — each violation makes the plan unusable:
 2. MEAL STRUCTURE: Every meal = ONE primary protein + ONE carbohydrate + ONE or more vegetables + optional healthy fat + seasoning.
 3. ONE PROTEIN ONLY: Each meal has EXACTLY ONE primary protein. Never put two proteins in one meal (no chicken+salmon, no beef+tuna, no eggs+chicken).
 4. PROTEIN VARIETY: Each meal across the day must use a DIFFERENT primary protein. Breakfast eggs → lunch must be chicken/fish/beef/etc. No repeated proteins.
-5. INVENTORY IDs: When using an inventory item, include its exact numeric ID from the "ID:42" prefix as "inventoryItemId". Omit inventoryItemId for non-inventory items.
-6. MACROS: Distribute daily targets proportionally across meals.
-7. ALLERGIES/DIET: Respect every restriction — this is non-negotiable.`;
+5. WEEKLY VARIETY: Do not repeat any meal name or primary protein from the "Recent meals this week" list. Rotate across: Chicken, Salmon, Beef, Turkey, Eggs, Tuna, Tofu, Shrimp. Rotate carbs: Rice, Pasta, Oats, Quinoa, Sweet Potato, Potatoes, Bread. Rotate vegetables every day.
+6. INVENTORY IDs: When using an inventory item, include its exact numeric ID from the "ID:42" prefix as "inventoryItemId". Omit inventoryItemId for non-inventory items.
+7. MACROS: Distribute daily targets proportionally across meals.
+8. ALLERGIES/DIET: Respect every restriction — this is non-negotiable.`;
 
   const userPrompt = `Generate a ${mealCount}-meal plan for ${date}.
 
@@ -210,6 +231,7 @@ Meal slots: ${mealTypes.join(", ")}
 
 Inventory (use ID as inventoryItemId):
 ${availableIngredients.length > 0 ? availableIngredients.join("\n") : "No inventory — use common pantry staples"}
+${recentMealNames.length > 0 ? `\nRecent meals this week (DO NOT repeat these — choose entirely different proteins, carbs, and meal styles):\n${recentMealNames.map((n) => `- ${n}`).join("\n")}` : ""}
 ${extraNotes ? `\nExtra notes: ${extraNotes}` : ""}`;
 
   const response = await openai.chat.completions.create({

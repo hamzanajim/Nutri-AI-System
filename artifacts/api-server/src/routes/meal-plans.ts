@@ -246,18 +246,58 @@ router.delete("/meal-plans/:id/meals/:mealId", requireAuth, async (req, res): Pr
   const mealId = parseInt(Array.isArray(req.params.mealId) ? req.params.mealId[0] : req.params.mealId, 10);
   if (isNaN(planId) || isNaN(mealId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const userId = req.auth!.userId;
+
   const [plan] = await db
     .select({ id: mealPlansTable.id })
     .from(mealPlansTable)
-    .where(and(eq(mealPlansTable.id, planId), eq(mealPlansTable.userId, req.auth!.userId)));
+    .where(and(eq(mealPlansTable.id, planId), eq(mealPlansTable.userId, userId)));
   if (!plan) { res.status(404).json({ error: "Meal plan not found" }); return; }
 
-  const [deleted] = await db
-    .delete(mealPlanMealsTable)
-    .where(and(eq(mealPlanMealsTable.id, mealId), eq(mealPlanMealsTable.planId, planId)))
-    .returning({ id: mealPlanMealsTable.id });
+  const [meal] = await db
+    .select()
+    .from(mealPlanMealsTable)
+    .where(and(eq(mealPlanMealsTable.id, mealId), eq(mealPlanMealsTable.planId, planId)));
+  if (!meal) { res.status(404).json({ error: "Meal not found" }); return; }
 
-  if (!deleted) { res.status(404).json({ error: "Meal not found" }); return; }
+  await db.transaction(async (tx) => {
+    // If the meal was already logged (completed), restore the inventory quantities
+    if (meal.completed) {
+      const ings = await tx
+        .select()
+        .from(mealPlanIngredientsTable)
+        .where(eq(mealPlanIngredientsTable.mealId, mealId));
+
+      for (const ing of ings) {
+        let invItem: typeof inventoryTable.$inferSelect | undefined;
+
+        if (ing.inventoryItemId) {
+          [invItem] = await tx
+            .select()
+            .from(inventoryTable)
+            .where(and(eq(inventoryTable.id, ing.inventoryItemId), eq(inventoryTable.userId, userId)));
+        }
+        if (!invItem) {
+          const items = await tx
+            .select()
+            .from(inventoryTable)
+            .where(and(eq(inventoryTable.userId, userId), sql`lower(${inventoryTable.name}) = lower(${ing.name})`));
+          invItem = items[0];
+        }
+        if (invItem) {
+          const restored = Number(invItem.quantity) + Number(ing.quantityG);
+          await tx
+            .update(inventoryTable)
+            .set({ quantity: String(restored) })
+            .where(eq(inventoryTable.id, invItem.id));
+        }
+      }
+    }
+
+    await tx
+      .delete(mealPlanMealsTable)
+      .where(and(eq(mealPlanMealsTable.id, mealId), eq(mealPlanMealsTable.planId, planId)));
+  });
 
   res.status(204).end();
 });
