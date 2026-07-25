@@ -545,6 +545,17 @@ export interface GroceryListItem {
   checked: boolean;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  currentQty?: number | null;
+  /** @nullable */
+  requiredQty?: number | null;
+  /** @nullable */
+  toBuyQty?: number | null;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  category?: string | null;
+  aiGenerated: boolean;
 }
 
 export interface GroceryList {
@@ -660,6 +671,246 @@ export interface ChatReply {
   role: ChatReplyRole;
 }
 
+export interface MealPlanIngredient {
+  id: number;
+  mealId: number;
+  name: string;
+  quantityG: number;
+  unit: string;
+  available: boolean;
+  /** @nullable */
+  inventoryItemId?: number | null;
+  /** @nullable */
+  substituteFor?: string | null;
+  /** @nullable */
+  substituteReason?: string | null;
+}
+
+export type MealPlanMealDetailMealType = typeof MealPlanMealDetailMealType[keyof typeof MealPlanMealDetailMealType];
+
+
+export const MealPlanMealDetailMealType = {
+  breakfast: 'breakfast',
+  lunch: 'lunch',
+  dinner: 'dinner',
+  snack: 'snack',
+} as const;
+
+export interface MealPlanMealDetail {
+  id: number;
+  planId: number;
+  name: string;
+  mealType: MealPlanMealDetailMealType;
+  /** @nullable */
+  scheduledTime?: string | null;
+  /** @nullable */
+  calories?: number | null;
+  /** @nullable */
+  proteinG?: number | null;
+  /** @nullable */
+  carbsG?: number | null;
+  /** @nullable */
+  fatG?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  prepInstructions?: string | null;
+  /** @nullable */
+  cookingTimeMinutes?: number | null;
+  completed: boolean;
+  /** @nullable */
+  completedAt?: string | null;
+  ingredients: MealPlanIngredient[];
+}
+
+export interface MealPlanDetail {
+  id: number;
+  userId: number;
+  date: string;
+  name: string;
+  status: string;
+  meals: MealPlanMealDetail[];
+  totalCalories: number;
+  totalProteinG: number;
+  totalCarbsG: number;
+  totalFatG: number;
+  createdAt: string;
+}
+
+export interface MealPlan {
+  id: number;
+  userId: number;
+  date: string;
+  name: string;
+  status: string;
+  totalCalories: number;
+  totalProteinG: number;
+  totalCarbsG: number;
+  totalFatG: number;
+  mealCount: number;
+  createdAt: string;
+}
+
+export interface MealPlanInput {
+  date: string;
+  name?: string;
+}
+
+export interface MealPlanMealUpdate {
+  name?: string;
+  mealType?: string;
+  scheduledTime?: string;
+  notes?: string;
+}
+
+export interface MealPlanGenerateInput {
+  date: string;
+  mealCount?: number;
+  notes?: string;
+}
+
+export interface IngredientReplaceInput {
+  ingredientName: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  mealPlanIngredientId?: number | null;
+}
+
+export interface IngredientReplaceResult {
+  found: boolean;
+  /** @nullable */
+  replacementName?: string | null;
+  /** @nullable */
+  replacementInventoryItemId?: number | null;
+  /** @nullable */
+  quantityG?: number | null;
+  reason: string;
+}
+
+export interface Supplement {
+  id: number;
+  userId: number;
+  name: string;
+  dose: number;
+  unit: string;
+  frequency: string;
+  scheduleTimes: string[];
+  /** @nullable */
+  currentQuantity?: number | null;
+  /** @nullable */
+  quantityUnit?: string | null;
+  reminderEnabled: boolean;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  daysRemaining?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupplementInput {
+  name: string;
+  dose: number;
+  unit: string;
+  frequency: string;
+  scheduleTimes?: string[];
+  currentQuantity?: number;
+  quantityUnit?: string;
+  reminderEnabled?: boolean;
+  notes?: string;
+}
+
+export interface SupplementUpdate {
+  name?: string;
+  dose?: number;
+  unit?: string;
+  frequency?: string;
+  scheduleTimes?: string[];
+  currentQuantity?: number;
+  quantityUnit?: string;
+  reminderEnabled?: boolean;
+  notes?: string;
+}
+
+export interface HealthLog {
+  id: number;
+  userId: number;
+  date: string;
+  /** @nullable */
+  energy?: number | null;
+  /** @nullable */
+  hunger?: number | null;
+  /** @nullable */
+  bloating?: number | null;
+  /** @nullable */
+  gas?: number | null;
+  /** @nullable */
+  sleepQuality?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface HealthLogInput {
+  date?: string;
+  energy?: number;
+  hunger?: number;
+  bloating?: number;
+  gas?: number;
+  sleepQuality?: number;
+  notes?: string;
+}
+
+export interface HealthPatternsResult {
+  patterns: string[];
+  suggestions: string[];
+  dataPoints: number;
+}
+
+export type InventoryAlertAlertType = typeof InventoryAlertAlertType[keyof typeof InventoryAlertAlertType];
+
+
+export const InventoryAlertAlertType = {
+  low: 'low',
+  expiring: 'expiring',
+  missing_from_plan: 'missing_from_plan',
+  freezer_prep: 'freezer_prep',
+} as const;
+
+export interface InventoryAlert {
+  id: number;
+  name: string;
+  quantity: number;
+  unit: string;
+  alertType: InventoryAlertAlertType;
+  message: string;
+  /** @nullable */
+  daysUntilExpiry?: number | null;
+}
+
+export interface DashboardNutrition {
+  consumed: number;
+  target: number;
+  remaining: number;
+  proteinConsumed: number;
+  proteinTarget: number;
+  carbsConsumed: number;
+  carbsTarget: number;
+  fatConsumed: number;
+  fatTarget: number;
+}
+
+export interface DashboardSummary {
+  date: string;
+  nutrition: DashboardNutrition;
+  mealPlan?: MealPlanDetail | null;
+  loggedMeals: MealWithItems[];
+  supplements: Supplement[];
+  inventoryAlerts: InventoryAlert[];
+  freezerAlerts: InventoryAlert[];
+}
+
 export type SearchFoodsParams = {
 /**
  * Search query
@@ -679,6 +930,18 @@ export type GetDailyNutritionParams = {
 /**
  * Date to calculate for (YYYY-MM-DD). Defaults to today.
  */
+date?: string;
+};
+
+export type ListMealPlansParams = {
+date?: string;
+};
+
+export type ListHealthLogsParams = {
+limit?: number;
+};
+
+export type GetDashboardTodayParams = {
 date?: string;
 };
 

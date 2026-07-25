@@ -272,6 +272,12 @@ function EditItemModal({
 
 // ─── Custom Item Input ────────────────────────────────────────────────────────
 
+const STORAGE_OPTIONS: { key: StorageLocation; label: string; emoji: string }[] = [
+  { key: 'fridge', label: 'Fridge', emoji: '❄️' },
+  { key: 'freezer', label: 'Freezer', emoji: '🧊' },
+  { key: 'pantry', label: 'Pantry', emoji: '🗄️' },
+];
+
 function CustomItemInput({
   onAdd,
   colors,
@@ -282,6 +288,7 @@ function CustomItemInput({
   const [name, setName] = useState('');
   const [qty, setQty] = useState('');
   const [unit, setUnit] = useState('g');
+  const [storage, setStorage] = useState<StorageLocation>('pantry');
   const [showDropdown, setShowDropdown] = useState(false);
   const [debouncedQ, setDebouncedQ] = useState('');
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -320,17 +327,19 @@ function CustomItemInput({
       name: name.trim(),
       qty: parseFloat(qty) || 100,
       unit: unit || 'g',
-      storageLocation: 'pantry',
+      storageLocation: storage,
     });
     setName('');
     setQty('');
     setUnit('g');
+    setStorage('pantry');
     setShowDropdown(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }
 
   return (
-    <View style={{ marginTop: 8 }}>
+    <View style={{ marginTop: 8, gap: 10 }}>
+      {/* Name + Qty + Unit row */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ flex: 1, position: 'relative' }}>
           <TextInput
@@ -356,7 +365,7 @@ function CustomItemInput({
           )}
         </View>
         <TextInput
-          style={{ height: 44, width: 70, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, fontSize: 14, fontFamily: 'Inter_400Regular', color: colors.foreground, backgroundColor: colors.card, textAlign: 'center' }}
+          style={{ height: 44, width: 65, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 8, fontSize: 14, fontFamily: 'Inter_400Regular', color: colors.foreground, backgroundColor: colors.card, textAlign: 'center' }}
           placeholder="Qty"
           placeholderTextColor={colors.mutedForeground}
           value={qty}
@@ -364,12 +373,40 @@ function CustomItemInput({
           keyboardType="decimal-pad"
         />
         <TextInput
-          style={{ height: 44, width: 60, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, fontSize: 14, fontFamily: 'Inter_400Regular', color: colors.foreground, backgroundColor: colors.card, textAlign: 'center' }}
+          style={{ height: 44, width: 54, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 8, fontSize: 14, fontFamily: 'Inter_400Regular', color: colors.foreground, backgroundColor: colors.card, textAlign: 'center' }}
           placeholder="g"
           placeholderTextColor={colors.mutedForeground}
           value={unit}
           onChangeText={setUnit}
         />
+      </View>
+
+      {/* Storage location row */}
+      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+        <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: colors.mutedForeground, textTransform: 'uppercase', marginRight: 2 }}>Store:</Text>
+        {STORAGE_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.key}
+            onPress={() => setStorage(opt.key)}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              paddingVertical: 8,
+              borderRadius: 10,
+              borderWidth: 1.5,
+              borderColor: storage === opt.key ? colors.primary : colors.border,
+              backgroundColor: storage === opt.key ? colors.primary + '15' : colors.card,
+            }}
+          >
+            <Text style={{ fontSize: 14 }}>{opt.emoji}</Text>
+            <Text style={{ fontSize: 12, fontFamily: storage === opt.key ? 'Inter_700Bold' : 'Inter_400Regular', color: storage === opt.key ? colors.primary : colors.mutedForeground }}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
         <TouchableOpacity
           onPress={handleAdd}
           style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', opacity: name.trim() ? 1 : 0.4 }}

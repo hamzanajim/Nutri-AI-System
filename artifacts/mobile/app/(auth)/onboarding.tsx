@@ -293,7 +293,7 @@ export default function OnboardingScreen() {
     mutation: {
       onSuccess: () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace('/(onboarding)/inventory-setup');
+        router.replace('/(onboarding)/kitchen-welcome');
       },
     },
   });

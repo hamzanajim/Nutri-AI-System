@@ -1,0 +1,183 @@
+We need to complete a stabilization and UX improvement sprint before adding new features.
+
+Do not add new features until every item below is working correctly.
+
+-----------------------------------
+1. FIX SIGN OUT
+-----------------------------------
+
+The Sign Out button is currently not working.
+
+It should:
+
+- Clear authentication tokens
+- Clear local user data
+- Return to the Login screen
+- Prevent access to authenticated pages until the user logs in again
+
+Test this flow completely.
+
+-----------------------------------
+2. IMPROVE INVENTORY ONBOARDING
+-----------------------------------
+
+After onboarding finishes, do NOT immediately show the Protein screen.
+
+Instead, create a welcome screen.
+
+Title:
+
+"Let's Set Up Your Kitchen"
+
+Subtitle:
+
+"To create personalized meal plans, I need to know what food you already have and what you usually keep at home.
+
+Add everything you currently have. Don't worry, you can edit it later."
+
+Buttons:
+
+Primary:
+"Start Inventory Setup"
+
+Secondary:
+"Skip for Now"
+
+When the user presses Start Inventory Setup, begin the category-by-category inventory wizard.
+
+-----------------------------------
+3. INVENTORY SETUP
+-----------------------------------
+
+During onboarding, every item added must ask:
+
+- Quantity
+- Unit
+- Storage Location
+
+Storage Location options:
+
+• Fridge
+• Freezer
+• Pantry
+
+This information is required because future features depend on it.
+
+Examples:
+
+Chicken Breast
+Quantity: 2 kg
+Storage: Freezer
+
+Milk
+Quantity: 2 L
+Storage: Fridge
+
+Rice
+Quantity: 5 kg
+Storage: Pantry
+
+-----------------------------------
+4. INVENTORY ICONS
+-----------------------------------
+
+Currently every inventory item uses the same icon.
+
+Replace with category-specific icons.
+
+Examples:
+
+Protein
+🥩
+
+Carbohydrates
+🍚
+
+Vegetables
+🥦
+
+Fruits
+🍎
+
+Dairy
+🥛
+
+Healthy Fats
+🥜
+
+Pantry
+🥫
+
+Drinks
+🥤
+
+Supplements
+💊
+
+If possible also use different colors for each category.
+
+-----------------------------------
+5. AI MEAL GENERATION
+-----------------------------------
+
+The "Generate Meal Plan" feature is not functioning.
+
+It should:
+
+Generate meals automatically based on:
+
+- User profile
+- Nutrition targets
+- Inventory
+- Health conditions
+- Preferences
+- Meals per day
+
+Create a complete daily meal plan.
+
+Each meal should include:
+
+- Meal name
+- Meal time
+- Ingredients
+- Calories
+- Protein
+- Carbs
+- Fat
+
+This should be a real working feature, not placeholder data.
+
+-----------------------------------
+6. DELETE MEALS
+-----------------------------------
+
+Delete Meal is not working.
+
+Users should be able to:
+
+- Delete meals
+- Confirm deletion
+- Refresh the meal list immediately
+
+Ensure both database and UI stay synchronized.
+
+-----------------------------------
+7. FULL TEST
+-----------------------------------
+
+Before considering this sprint complete:
+
+Test:
+
+✓ Login
+✓ Logout
+✓ Onboarding
+✓ Inventory setup
+✓ Inventory editing
+✓ Meal generation
+✓ Meal deletion
+✓ Dashboard updates
+
+Fix any issues discovered during testing.
+
+Do not add additional features until all of the above work correctly.

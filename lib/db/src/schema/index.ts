@@ -6,3 +6,6 @@ export * from "./meal_items";
 export * from "./inventory";
 export * from "./grocery_lists";
 export * from "./grocery_list_items";
+export * from "./meal_plans";
+export * from "./supplements";
+export * from "./health_logs";

@@ -1,1 +1,5 @@
 - [NutriAI architecture](nutriai-arch.md) — JWT auth, Drizzle/Postgres, OpenAPI codegen, Expo mobile; all built and typechecking clean.
+- [NutriAI route param normalization](nutriai-params.md) — Express 5 params are `string | string[]`; always normalize with `Array.isArray(req.params.x) ? req.params.x[0] : req.params.x`.
+- [NutriAI Drizzle numeric columns](nutriai-drizzle-numerics.md) — Drizzle `numeric()` columns require `String(value)` on insert, not bare JS numbers.
+- [NutriAI grocery optimize](nutriai-grocery-optimize.md) — `POST /grocery-lists/:id/optimize` does programmatic calc (no AI needed): compares meal plan ingredients vs inventory, inserts smart items with currentQty/requiredQty/toBuyQty fields, clears old aiGenerated items first.
+- [NutriAI meal system](nutriai-meal-system.md) — ingredient matching by ID-first, AI prompt protein-variety rules, ingredient PATCH endpoint, meals.tsx UX model with expandable cards + Log Meal + Missing Ingredients section.

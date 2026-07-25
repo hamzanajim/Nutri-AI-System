@@ -697,7 +697,13 @@ export const GetGroceryListResponse = zod.object({
   "quantity": zod.number().nullish(),
   "unit": zod.string().nullish(),
   "checked": zod.boolean(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "currentQty": zod.number().nullish(),
+  "requiredQty": zod.number().nullish(),
+  "toBuyQty": zod.number().nullish(),
+  "reason": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "aiGenerated": zod.boolean()
 })),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -755,7 +761,13 @@ export const AddGroceryListItemResponse = zod.object({
   "quantity": zod.number().nullish(),
   "unit": zod.string().nullish(),
   "checked": zod.boolean(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "currentQty": zod.number().nullish(),
+  "requiredQty": zod.number().nullish(),
+  "toBuyQty": zod.number().nullish(),
+  "reason": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "aiGenerated": zod.boolean()
 })
 
 
@@ -782,7 +794,13 @@ export const UpdateGroceryListItemResponse = zod.object({
   "quantity": zod.number().nullish(),
   "unit": zod.string().nullish(),
   "checked": zod.boolean(),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "currentQty": zod.number().nullish(),
+  "requiredQty": zod.number().nullish(),
+  "toBuyQty": zod.number().nullish(),
+  "reason": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "aiGenerated": zod.boolean()
 })
 
 
@@ -894,6 +912,646 @@ export const NutritionChatBody = zod.object({
 export const NutritionChatResponse = zod.object({
   "message": zod.string(),
   "role": zod.enum(['assistant'])
+})
+
+
+/**
+ * @summary List meal plans for the user
+ */
+export const ListMealPlansQueryParams = zod.object({
+  "date": zod.coerce.string().optional()
+})
+
+export const ListMealPlansResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "totalCalories": zod.number(),
+  "totalProteinG": zod.number(),
+  "totalCarbsG": zod.number(),
+  "totalFatG": zod.number(),
+  "mealCount": zod.number(),
+  "createdAt": zod.coerce.date()
+})
+export const ListMealPlansResponse = zod.array(ListMealPlansResponseItem)
+
+
+/**
+ * @summary Create a blank meal plan
+ */
+export const CreateMealPlanBody = zod.object({
+  "date": zod.string(),
+  "name": zod.string().optional()
+})
+
+export const CreateMealPlanResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "meals": zod.array(zod.object({
+  "id": zod.number(),
+  "planId": zod.number(),
+  "name": zod.string(),
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "scheduledTime": zod.string().nullish(),
+  "calories": zod.number().nullish(),
+  "proteinG": zod.number().nullish(),
+  "carbsG": zod.number().nullish(),
+  "fatG": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "prepInstructions": zod.string().nullish(),
+  "cookingTimeMinutes": zod.number().nullish(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullish(),
+  "ingredients": zod.array(zod.object({
+  "id": zod.number(),
+  "mealId": zod.number(),
+  "name": zod.string(),
+  "quantityG": zod.number(),
+  "unit": zod.string(),
+  "available": zod.boolean(),
+  "inventoryItemId": zod.number().nullish(),
+  "substituteFor": zod.string().nullish(),
+  "substituteReason": zod.string().nullish()
+}))
+})),
+  "totalCalories": zod.number(),
+  "totalProteinG": zod.number(),
+  "totalCarbsG": zod.number(),
+  "totalFatG": zod.number(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get a meal plan with all meals and ingredients
+ */
+export const GetMealPlanParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetMealPlanResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "meals": zod.array(zod.object({
+  "id": zod.number(),
+  "planId": zod.number(),
+  "name": zod.string(),
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "scheduledTime": zod.string().nullish(),
+  "calories": zod.number().nullish(),
+  "proteinG": zod.number().nullish(),
+  "carbsG": zod.number().nullish(),
+  "fatG": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "prepInstructions": zod.string().nullish(),
+  "cookingTimeMinutes": zod.number().nullish(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullish(),
+  "ingredients": zod.array(zod.object({
+  "id": zod.number(),
+  "mealId": zod.number(),
+  "name": zod.string(),
+  "quantityG": zod.number(),
+  "unit": zod.string(),
+  "available": zod.boolean(),
+  "inventoryItemId": zod.number().nullish(),
+  "substituteFor": zod.string().nullish(),
+  "substituteReason": zod.string().nullish()
+}))
+})),
+  "totalCalories": zod.number(),
+  "totalProteinG": zod.number(),
+  "totalCarbsG": zod.number(),
+  "totalFatG": zod.number(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a meal plan
+ */
+export const DeleteMealPlanParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteMealPlanResponse = zod.void()
+
+
+/**
+ * @summary Update a meal in a plan
+ */
+export const UpdateMealPlanMealParams = zod.object({
+  "id": zod.coerce.number(),
+  "mealId": zod.coerce.number()
+})
+
+export const UpdateMealPlanMealBody = zod.object({
+  "name": zod.string().optional(),
+  "mealType": zod.string().optional(),
+  "scheduledTime": zod.string().optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateMealPlanMealResponse = zod.object({
+  "id": zod.number(),
+  "planId": zod.number(),
+  "name": zod.string(),
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "scheduledTime": zod.string().nullish(),
+  "calories": zod.number().nullish(),
+  "proteinG": zod.number().nullish(),
+  "carbsG": zod.number().nullish(),
+  "fatG": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "prepInstructions": zod.string().nullish(),
+  "cookingTimeMinutes": zod.number().nullish(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullish(),
+  "ingredients": zod.array(zod.object({
+  "id": zod.number(),
+  "mealId": zod.number(),
+  "name": zod.string(),
+  "quantityG": zod.number(),
+  "unit": zod.string(),
+  "available": zod.boolean(),
+  "inventoryItemId": zod.number().nullish(),
+  "substituteFor": zod.string().nullish(),
+  "substituteReason": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Delete a meal from a plan
+ */
+export const DeleteMealPlanMealParams = zod.object({
+  "id": zod.coerce.number(),
+  "mealId": zod.coerce.number()
+})
+
+export const DeleteMealPlanMealResponse = zod.void()
+
+
+/**
+ * @summary Mark a planned meal as complete and deduct ingredients from inventory
+ */
+export const CompleteMealPlanMealParams = zod.object({
+  "id": zod.coerce.number(),
+  "mealId": zod.coerce.number()
+})
+
+export const CompleteMealPlanMealResponse = zod.object({
+  "id": zod.number(),
+  "planId": zod.number(),
+  "name": zod.string(),
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "scheduledTime": zod.string().nullish(),
+  "calories": zod.number().nullish(),
+  "proteinG": zod.number().nullish(),
+  "carbsG": zod.number().nullish(),
+  "fatG": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "prepInstructions": zod.string().nullish(),
+  "cookingTimeMinutes": zod.number().nullish(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullish(),
+  "ingredients": zod.array(zod.object({
+  "id": zod.number(),
+  "mealId": zod.number(),
+  "name": zod.string(),
+  "quantityG": zod.number(),
+  "unit": zod.string(),
+  "available": zod.boolean(),
+  "inventoryItemId": zod.number().nullish(),
+  "substituteFor": zod.string().nullish(),
+  "substituteReason": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary AI-regenerate a single meal in a plan
+ */
+export const RegenerateMealPlanMealParams = zod.object({
+  "id": zod.coerce.number(),
+  "mealId": zod.coerce.number()
+})
+
+export const RegenerateMealPlanMealResponse = zod.object({
+  "id": zod.number(),
+  "planId": zod.number(),
+  "name": zod.string(),
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "scheduledTime": zod.string().nullish(),
+  "calories": zod.number().nullish(),
+  "proteinG": zod.number().nullish(),
+  "carbsG": zod.number().nullish(),
+  "fatG": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "prepInstructions": zod.string().nullish(),
+  "cookingTimeMinutes": zod.number().nullish(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullish(),
+  "ingredients": zod.array(zod.object({
+  "id": zod.number(),
+  "mealId": zod.number(),
+  "name": zod.string(),
+  "quantityG": zod.number(),
+  "unit": zod.string(),
+  "available": zod.boolean(),
+  "inventoryItemId": zod.number().nullish(),
+  "substituteFor": zod.string().nullish(),
+  "substituteReason": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Generate a full AI meal plan for a day
+ */
+export const GenerateMealPlanBody = zod.object({
+  "date": zod.string(),
+  "mealCount": zod.number().optional(),
+  "notes": zod.string().optional()
+})
+
+export const GenerateMealPlanResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "meals": zod.array(zod.object({
+  "id": zod.number(),
+  "planId": zod.number(),
+  "name": zod.string(),
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "scheduledTime": zod.string().nullish(),
+  "calories": zod.number().nullish(),
+  "proteinG": zod.number().nullish(),
+  "carbsG": zod.number().nullish(),
+  "fatG": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "prepInstructions": zod.string().nullish(),
+  "cookingTimeMinutes": zod.number().nullish(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullish(),
+  "ingredients": zod.array(zod.object({
+  "id": zod.number(),
+  "mealId": zod.number(),
+  "name": zod.string(),
+  "quantityG": zod.number(),
+  "unit": zod.string(),
+  "available": zod.boolean(),
+  "inventoryItemId": zod.number().nullish(),
+  "substituteFor": zod.string().nullish(),
+  "substituteReason": zod.string().nullish()
+}))
+})),
+  "totalCalories": zod.number(),
+  "totalProteinG": zod.number(),
+  "totalCarbsG": zod.number(),
+  "totalFatG": zod.number(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary AI finds the best inventory replacement for a missing ingredient
+ */
+export const ReplaceMealIngredientBody = zod.object({
+  "ingredientName": zod.string(),
+  "category": zod.string().nullish(),
+  "mealPlanIngredientId": zod.number().nullish()
+})
+
+export const ReplaceMealIngredientResponse = zod.object({
+  "found": zod.boolean(),
+  "replacementName": zod.string().nullish(),
+  "replacementInventoryItemId": zod.number().nullish(),
+  "quantityG": zod.number().nullish(),
+  "reason": zod.string()
+})
+
+
+/**
+ * @summary List all supplements for the user
+ */
+export const ListSupplementsResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "name": zod.string(),
+  "dose": zod.number(),
+  "unit": zod.string(),
+  "frequency": zod.string(),
+  "scheduleTimes": zod.array(zod.string()),
+  "currentQuantity": zod.number().nullish(),
+  "quantityUnit": zod.string().nullish(),
+  "reminderEnabled": zod.boolean(),
+  "notes": zod.string().nullish(),
+  "daysRemaining": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListSupplementsResponse = zod.array(ListSupplementsResponseItem)
+
+
+/**
+ * @summary Create a supplement
+ */
+export const CreateSupplementBody = zod.object({
+  "name": zod.string(),
+  "dose": zod.number(),
+  "unit": zod.string(),
+  "frequency": zod.string(),
+  "scheduleTimes": zod.array(zod.string()).optional(),
+  "currentQuantity": zod.number().optional(),
+  "quantityUnit": zod.string().optional(),
+  "reminderEnabled": zod.boolean().optional(),
+  "notes": zod.string().optional()
+})
+
+export const CreateSupplementResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "name": zod.string(),
+  "dose": zod.number(),
+  "unit": zod.string(),
+  "frequency": zod.string(),
+  "scheduleTimes": zod.array(zod.string()),
+  "currentQuantity": zod.number().nullish(),
+  "quantityUnit": zod.string().nullish(),
+  "reminderEnabled": zod.boolean(),
+  "notes": zod.string().nullish(),
+  "daysRemaining": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a supplement
+ */
+export const UpdateSupplementParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateSupplementBody = zod.object({
+  "name": zod.string().optional(),
+  "dose": zod.number().optional(),
+  "unit": zod.string().optional(),
+  "frequency": zod.string().optional(),
+  "scheduleTimes": zod.array(zod.string()).optional(),
+  "currentQuantity": zod.number().optional(),
+  "quantityUnit": zod.string().optional(),
+  "reminderEnabled": zod.boolean().optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateSupplementResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "name": zod.string(),
+  "dose": zod.number(),
+  "unit": zod.string(),
+  "frequency": zod.string(),
+  "scheduleTimes": zod.array(zod.string()),
+  "currentQuantity": zod.number().nullish(),
+  "quantityUnit": zod.string().nullish(),
+  "reminderEnabled": zod.boolean(),
+  "notes": zod.string().nullish(),
+  "daysRemaining": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a supplement
+ */
+export const DeleteSupplementParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteSupplementResponse = zod.void()
+
+
+/**
+ * @summary List health logs for the user
+ */
+export const ListHealthLogsQueryParams = zod.object({
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListHealthLogsResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "date": zod.string(),
+  "energy": zod.number().nullish(),
+  "hunger": zod.number().nullish(),
+  "bloating": zod.number().nullish(),
+  "gas": zod.number().nullish(),
+  "sleepQuality": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListHealthLogsResponse = zod.array(ListHealthLogsResponseItem)
+
+
+/**
+ * @summary Create or update a health log for a date
+ */
+export const CreateHealthLogBody = zod.object({
+  "date": zod.string().optional(),
+  "energy": zod.number().optional(),
+  "hunger": zod.number().optional(),
+  "bloating": zod.number().optional(),
+  "gas": zod.number().optional(),
+  "sleepQuality": zod.number().optional(),
+  "notes": zod.string().optional()
+})
+
+export const CreateHealthLogResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "date": zod.string(),
+  "energy": zod.number().nullish(),
+  "hunger": zod.number().nullish(),
+  "bloating": zod.number().nullish(),
+  "gas": zod.number().nullish(),
+  "sleepQuality": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary AI-detected patterns from health log history
+ */
+export const GetHealthPatternsResponse = zod.object({
+  "patterns": zod.array(zod.string()),
+  "suggestions": zod.array(zod.string()),
+  "dataPoints": zod.number()
+})
+
+
+/**
+ * @summary Aggregated daily assistant data for the dashboard
+ */
+export const GetDashboardTodayQueryParams = zod.object({
+  "date": zod.coerce.string().optional()
+})
+
+export const GetDashboardTodayResponse = zod.object({
+  "date": zod.string(),
+  "nutrition": zod.object({
+  "consumed": zod.number(),
+  "target": zod.number(),
+  "remaining": zod.number(),
+  "proteinConsumed": zod.number(),
+  "proteinTarget": zod.number(),
+  "carbsConsumed": zod.number(),
+  "carbsTarget": zod.number(),
+  "fatConsumed": zod.number(),
+  "fatTarget": zod.number()
+}),
+  "mealPlan": zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "meals": zod.array(zod.object({
+  "id": zod.number(),
+  "planId": zod.number(),
+  "name": zod.string(),
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "scheduledTime": zod.string().nullish(),
+  "calories": zod.number().nullish(),
+  "proteinG": zod.number().nullish(),
+  "carbsG": zod.number().nullish(),
+  "fatG": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "prepInstructions": zod.string().nullish(),
+  "cookingTimeMinutes": zod.number().nullish(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullish(),
+  "ingredients": zod.array(zod.object({
+  "id": zod.number(),
+  "mealId": zod.number(),
+  "name": zod.string(),
+  "quantityG": zod.number(),
+  "unit": zod.string(),
+  "available": zod.boolean(),
+  "inventoryItemId": zod.number().nullish(),
+  "substituteFor": zod.string().nullish(),
+  "substituteReason": zod.string().nullish()
+}))
+})),
+  "totalCalories": zod.number(),
+  "totalProteinG": zod.number(),
+  "totalCarbsG": zod.number(),
+  "totalFatG": zod.number(),
+  "createdAt": zod.coerce.date()
+}).nullish(),
+  "loggedMeals": zod.array(zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "name": zod.string(),
+  "mealType": zod.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  "date": zod.coerce.date(),
+  "notes": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "mealId": zod.number(),
+  "foodId": zod.number().nullish(),
+  "foodName": zod.string(),
+  "quantityG": zod.number(),
+  "calories": zod.number(),
+  "proteinG": zod.number(),
+  "carbsG": zod.number(),
+  "fatG": zod.number(),
+  "fiberG": zod.number().nullish()
+})),
+  "totalCalories": zod.number(),
+  "totalProteinG": zod.number(),
+  "totalCarbsG": zod.number(),
+  "totalFatG": zod.number(),
+  "createdAt": zod.coerce.date()
+})),
+  "supplements": zod.array(zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "name": zod.string(),
+  "dose": zod.number(),
+  "unit": zod.string(),
+  "frequency": zod.string(),
+  "scheduleTimes": zod.array(zod.string()),
+  "currentQuantity": zod.number().nullish(),
+  "quantityUnit": zod.string().nullish(),
+  "reminderEnabled": zod.boolean(),
+  "notes": zod.string().nullish(),
+  "daysRemaining": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "inventoryAlerts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "quantity": zod.number(),
+  "unit": zod.string(),
+  "alertType": zod.enum(['low', 'expiring', 'missing_from_plan', 'freezer_prep']),
+  "message": zod.string(),
+  "daysUntilExpiry": zod.number().nullish()
+})),
+  "freezerAlerts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "quantity": zod.number(),
+  "unit": zod.string(),
+  "alertType": zod.enum(['low', 'expiring', 'missing_from_plan', 'freezer_prep']),
+  "message": zod.string(),
+  "daysUntilExpiry": zod.number().nullish()
+}))
+})
+
+
+/**
+ * @summary AI-populate grocery list based on inventory gaps and meal plan
+ */
+export const OptimizeGroceryListParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const OptimizeGroceryListResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "name": zod.string(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "listId": zod.number(),
+  "name": zod.string(),
+  "quantity": zod.number().nullish(),
+  "unit": zod.string().nullish(),
+  "checked": zod.boolean(),
+  "notes": zod.string().nullish(),
+  "currentQty": zod.number().nullish(),
+  "requiredQty": zod.number().nullish(),
+  "toBuyQty": zod.number().nullish(),
+  "reason": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "aiGenerated": zod.boolean()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
 })
 
 

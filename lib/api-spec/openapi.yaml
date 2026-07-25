@@ -26,6 +26,14 @@ tags:
     description: Nutrition calculation operations
   - name: ai
     description: AI-powered operations
+  - name: meal-plans
+    description: AI-powered meal planning
+  - name: supplements
+    description: Supplement tracking and reminders
+  - name: health-logs
+    description: Health and digestion tracking
+  - name: dashboard
+    description: Daily assistant dashboard
 
 paths:
   /healthz:
@@ -828,6 +836,414 @@ paths:
               schema:
                 $ref: "#/components/schemas/ChatReply"
 
+  # ─── Meal Plans ──────────────────────────────────────────────────────────────
+
+  /meal-plans:
+    get:
+      operationId: listMealPlans
+      tags: [meal-plans]
+      summary: List meal plans for the user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of meal plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MealPlan"
+    post:
+      operationId: createMealPlan
+      tags: [meal-plans]
+      summary: Create a blank meal plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealPlanInput"
+      responses:
+        "201":
+          description: Created meal plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlanDetail"
+
+  /meal-plans/{id}:
+    get:
+      operationId: getMealPlan
+      tags: [meal-plans]
+      summary: Get a meal plan with all meals and ingredients
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Meal plan detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlanDetail"
+    delete:
+      operationId: deleteMealPlan
+      tags: [meal-plans]
+      summary: Delete a meal plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /meal-plans/{id}/meals/{mealId}:
+    patch:
+      operationId: updateMealPlanMeal
+      tags: [meal-plans]
+      summary: Update a meal in a plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: mealId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealPlanMealUpdate"
+      responses:
+        "200":
+          description: Updated meal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlanMealDetail"
+    delete:
+      operationId: deleteMealPlanMeal
+      tags: [meal-plans]
+      summary: Delete a meal from a plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: mealId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /meal-plans/{id}/meals/{mealId}/complete:
+    post:
+      operationId: completeMealPlanMeal
+      tags: [meal-plans]
+      summary: Mark a planned meal as complete and deduct ingredients from inventory
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: mealId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Meal marked complete, inventory updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlanMealDetail"
+
+  /meal-plans/{id}/meals/{mealId}/regenerate:
+    post:
+      operationId: regenerateMealPlanMeal
+      tags: [meal-plans]
+      summary: AI-regenerate a single meal in a plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: mealId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Regenerated meal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlanMealDetail"
+
+  /ai/generate-meal-plan:
+    post:
+      operationId: generateMealPlan
+      tags: [ai]
+      summary: Generate a full AI meal plan for a day
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MealPlanGenerateInput"
+      responses:
+        "201":
+          description: Generated meal plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealPlanDetail"
+
+  /ai/replace-ingredient:
+    post:
+      operationId: replaceMealIngredient
+      tags: [ai]
+      summary: AI finds the best inventory replacement for a missing ingredient
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngredientReplaceInput"
+      responses:
+        "200":
+          description: Replacement suggestion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngredientReplaceResult"
+
+  # ─── Supplements ─────────────────────────────────────────────────────────────
+
+  /supplements:
+    get:
+      operationId: listSupplements
+      tags: [supplements]
+      summary: List all supplements for the user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of supplements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Supplement"
+    post:
+      operationId: createSupplement
+      tags: [supplements]
+      summary: Create a supplement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplementInput"
+      responses:
+        "201":
+          description: Created supplement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplement"
+
+  /supplements/{id}:
+    patch:
+      operationId: updateSupplement
+      tags: [supplements]
+      summary: Update a supplement
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplementUpdate"
+      responses:
+        "200":
+          description: Updated supplement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplement"
+    delete:
+      operationId: deleteSupplement
+      tags: [supplements]
+      summary: Delete a supplement
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Health Logs ─────────────────────────────────────────────────────────────
+
+  /health-logs:
+    get:
+      operationId: listHealthLogs
+      tags: [health-logs]
+      summary: List health logs for the user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of health logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HealthLog"
+    post:
+      operationId: createHealthLog
+      tags: [health-logs]
+      summary: Create or update a health log for a date
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HealthLogInput"
+      responses:
+        "200":
+          description: Created/updated health log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthLog"
+
+  /health-logs/patterns:
+    get:
+      operationId: getHealthPatterns
+      tags: [health-logs]
+      summary: AI-detected patterns from health log history
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Health patterns and suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthPatternsResult"
+
+  # ─── Dashboard ───────────────────────────────────────────────────────────────
+
+  /dashboard/today:
+    get:
+      operationId: getDashboardToday
+      tags: [dashboard]
+      summary: Aggregated daily assistant data for the dashboard
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  # ─── Smart Grocery ───────────────────────────────────────────────────────────
+
+  /grocery-lists/{id}/optimize:
+    post:
+      operationId: optimizeGroceryList
+      tags: [grocery]
+      summary: AI-populate grocery list based on inventory gaps and meal plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Optimized grocery list with smart quantities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryListWithItems"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1487,11 +1903,24 @@ components:
           type: boolean
         notes:
           type: ["string", "null"]
+        currentQty:
+          type: ["number", "null"]
+        requiredQty:
+          type: ["number", "null"]
+        toBuyQty:
+          type: ["number", "null"]
+        reason:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        aiGenerated:
+          type: boolean
       required:
         - id
         - listId
         - name
         - checked
+        - aiGenerated
 
     GroceryList:
       type: object
@@ -1737,3 +2166,487 @@ components:
       required:
         - message
         - role
+
+    # ── Meal Plans ────────────────────────────────────────────────────────────
+
+    MealPlanIngredient:
+      type: object
+      properties:
+        id:
+          type: integer
+        mealId:
+          type: integer
+        name:
+          type: string
+        quantityG:
+          type: number
+        unit:
+          type: string
+        available:
+          type: boolean
+        inventoryItemId:
+          type: ["integer", "null"]
+        substituteFor:
+          type: ["string", "null"]
+        substituteReason:
+          type: ["string", "null"]
+      required:
+        - id
+        - mealId
+        - name
+        - quantityG
+        - unit
+        - available
+
+    MealPlanMealDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        name:
+          type: string
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        scheduledTime:
+          type: ["string", "null"]
+        calories:
+          type: ["number", "null"]
+        proteinG:
+          type: ["number", "null"]
+        carbsG:
+          type: ["number", "null"]
+        fatG:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        prepInstructions:
+          type: ["string", "null"]
+        cookingTimeMinutes:
+          type: ["integer", "null"]
+        completed:
+          type: boolean
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealPlanIngredient"
+      required:
+        - id
+        - planId
+        - name
+        - mealType
+        - completed
+        - ingredients
+
+    MealPlanDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        date:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        meals:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealPlanMealDetail"
+        totalCalories:
+          type: number
+        totalProteinG:
+          type: number
+        totalCarbsG:
+          type: number
+        totalFatG:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - date
+        - name
+        - status
+        - meals
+        - totalCalories
+        - totalProteinG
+        - totalCarbsG
+        - totalFatG
+        - createdAt
+
+    MealPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        date:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        totalCalories:
+          type: number
+        totalProteinG:
+          type: number
+        totalCarbsG:
+          type: number
+        totalFatG:
+          type: number
+        mealCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - date
+        - name
+        - status
+        - totalCalories
+        - totalProteinG
+        - totalCarbsG
+        - totalFatG
+        - mealCount
+        - createdAt
+
+    MealPlanInput:
+      type: object
+      properties:
+        date:
+          type: string
+        name:
+          type: string
+      required:
+        - date
+
+    MealPlanMealUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        mealType:
+          type: string
+        scheduledTime:
+          type: string
+        notes:
+          type: string
+
+    MealPlanGenerateInput:
+      type: object
+      properties:
+        date:
+          type: string
+        mealCount:
+          type: integer
+        notes:
+          type: string
+      required:
+        - date
+
+    IngredientReplaceInput:
+      type: object
+      properties:
+        ingredientName:
+          type: string
+        category:
+          type: ["string", "null"]
+        mealPlanIngredientId:
+          type: ["integer", "null"]
+      required:
+        - ingredientName
+
+    IngredientReplaceResult:
+      type: object
+      properties:
+        found:
+          type: boolean
+        replacementName:
+          type: ["string", "null"]
+        replacementInventoryItemId:
+          type: ["integer", "null"]
+        quantityG:
+          type: ["number", "null"]
+        reason:
+          type: string
+      required:
+        - found
+        - reason
+
+    # ── Supplements ───────────────────────────────────────────────────────────
+
+    Supplement:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        dose:
+          type: number
+        unit:
+          type: string
+        frequency:
+          type: string
+        scheduleTimes:
+          type: array
+          items:
+            type: string
+        currentQuantity:
+          type: ["number", "null"]
+        quantityUnit:
+          type: ["string", "null"]
+        reminderEnabled:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        daysRemaining:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - dose
+        - unit
+        - frequency
+        - scheduleTimes
+        - reminderEnabled
+        - createdAt
+        - updatedAt
+
+    SupplementInput:
+      type: object
+      properties:
+        name:
+          type: string
+        dose:
+          type: number
+        unit:
+          type: string
+        frequency:
+          type: string
+        scheduleTimes:
+          type: array
+          items:
+            type: string
+        currentQuantity:
+          type: number
+        quantityUnit:
+          type: string
+        reminderEnabled:
+          type: boolean
+        notes:
+          type: string
+      required:
+        - name
+        - dose
+        - unit
+        - frequency
+
+    SupplementUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        dose:
+          type: number
+        unit:
+          type: string
+        frequency:
+          type: string
+        scheduleTimes:
+          type: array
+          items:
+            type: string
+        currentQuantity:
+          type: number
+        quantityUnit:
+          type: string
+        reminderEnabled:
+          type: boolean
+        notes:
+          type: string
+
+    # ── Health Logs ───────────────────────────────────────────────────────────
+
+    HealthLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        date:
+          type: string
+        energy:
+          type: ["integer", "null"]
+        hunger:
+          type: ["integer", "null"]
+        bloating:
+          type: ["integer", "null"]
+        gas:
+          type: ["integer", "null"]
+        sleepQuality:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - date
+        - createdAt
+
+    HealthLogInput:
+      type: object
+      properties:
+        date:
+          type: string
+        energy:
+          type: integer
+        hunger:
+          type: integer
+        bloating:
+          type: integer
+        gas:
+          type: integer
+        sleepQuality:
+          type: integer
+        notes:
+          type: string
+
+    HealthPatternsResult:
+      type: object
+      properties:
+        patterns:
+          type: array
+          items:
+            type: string
+        suggestions:
+          type: array
+          items:
+            type: string
+        dataPoints:
+          type: integer
+      required:
+        - patterns
+        - suggestions
+        - dataPoints
+
+    # ── Dashboard ─────────────────────────────────────────────────────────────
+
+    InventoryAlert:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+        alertType:
+          type: string
+          enum: [low, expiring, missing_from_plan, freezer_prep]
+        message:
+          type: string
+        daysUntilExpiry:
+          type: ["integer", "null"]
+      required:
+        - id
+        - name
+        - quantity
+        - unit
+        - alertType
+        - message
+
+    DashboardNutrition:
+      type: object
+      properties:
+        consumed:
+          type: number
+        target:
+          type: number
+        remaining:
+          type: number
+        proteinConsumed:
+          type: number
+        proteinTarget:
+          type: number
+        carbsConsumed:
+          type: number
+        carbsTarget:
+          type: number
+        fatConsumed:
+          type: number
+        fatTarget:
+          type: number
+      required:
+        - consumed
+        - target
+        - remaining
+        - proteinConsumed
+        - proteinTarget
+        - carbsConsumed
+        - carbsTarget
+        - fatConsumed
+        - fatTarget
+
+    DashboardSummary:
+      type: object
+      properties:
+        date:
+          type: string
+        nutrition:
+          $ref: "#/components/schemas/DashboardNutrition"
+        mealPlan:
+          allOf:
+            - $ref: "#/components/schemas/MealPlanDetail"
+          nullable: true
+        loggedMeals:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealWithItems"
+        supplements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Supplement"
+        inventoryAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventoryAlert"
+        freezerAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventoryAlert"
+      required:
+        - date
+        - nutrition
+        - loggedMeals
+        - supplements
+        - inventoryAlerts
+        - freezerAlerts

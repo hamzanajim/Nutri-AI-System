@@ -17,4 +17,15 @@ export interface GroceryListItem {
   checked: boolean;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  currentQty?: number | null;
+  /** @nullable */
+  requiredQty?: number | null;
+  /** @nullable */
+  toBuyQty?: number | null;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  category?: string | null;
+  aiGenerated: boolean;
 }

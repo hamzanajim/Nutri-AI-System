@@ -13,6 +13,13 @@ export const groceryListItemsTable = pgTable("grocery_list_items", {
   unit: text("unit"),
   checked: boolean("checked").notNull().default(false),
   notes: text("notes"),
+  // Smart grocery fields (AI-populated)
+  currentQty: numeric("current_qty"),    // what's in inventory now
+  requiredQty: numeric("required_qty"),  // what the meal plan needs
+  toBuyQty: numeric("to_buy_qty"),       // calculated: requiredQty - currentQty
+  reason: text("reason"),               // "Needed for 5 meals this week"
+  category: text("category"),           // food category for grouping
+  aiGenerated: boolean("ai_generated").notNull().default(false),
 });
 
 export const insertGroceryListItemSchema = createInsertSchema(groceryListItemsTable).omit({
