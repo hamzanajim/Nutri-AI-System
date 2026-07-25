@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import {
   db,
   mealPlansTable,
@@ -117,7 +117,9 @@ router.get("/meal-plans", requireAuth, async (req, res): Promise<void> => {
         ? and(eq(mealPlansTable.userId, userId), eq(mealPlansTable.date, date))
         : eq(mealPlansTable.userId, userId)
     )
-    .orderBy(mealPlansTable.date);
+    // When filtering by date: newest plan first so [0] is always the active one.
+    // When listing all: primary sort by date, secondary by newest creation.
+    .orderBy(mealPlansTable.date, desc(mealPlansTable.createdAt));
 
   // For listing we just include summary counts, not full meals
   const result = await Promise.all(
@@ -157,6 +159,17 @@ router.post("/meal-plans", requireAuth, async (req, res): Promise<void> => {
 
   if (!date) {
     res.status(400).json({ error: "date is required" });
+    return;
+  }
+
+  // One plan per (user, date) — return existing if already present.
+  const [existing] = await db
+    .select()
+    .from(mealPlansTable)
+    .where(and(eq(mealPlansTable.userId, userId), eq(mealPlansTable.date, date)));
+  if (existing) {
+    const detail = await buildPlanDetail(existing.id, userId);
+    res.status(200).json(detail);
     return;
   }
 
@@ -277,58 +290,57 @@ router.post("/meal-plans/:id/meals/:mealId/complete", requireAuth, async (req, r
     return;
   }
 
-  // Get all ingredients for this meal
-  const ingredients = await db
-    .select()
-    .from(mealPlanIngredientsTable)
-    .where(eq(mealPlanIngredientsTable.mealId, mealId));
+  // Run everything atomically: inventory deduction + mark done + nutrition log.
+  // If any step fails the transaction rolls back, preventing partial state.
+  const { updatedMeal, ingredients } = await db.transaction(async (tx) => {
+    // Fetch ingredients inside transaction so reads are consistent
+    const ings = await tx
+      .select()
+      .from(mealPlanIngredientsTable)
+      .where(eq(mealPlanIngredientsTable.mealId, mealId));
 
-  // Deduct ingredients from inventory
-  for (const ing of ingredients) {
-    // Try by inventoryItemId first, then by name match
-    let invItem: typeof inventoryTable.$inferSelect | undefined;
+    // Deduct ingredients from inventory
+    for (const ing of ings) {
+      let invItem: typeof inventoryTable.$inferSelect | undefined;
 
-    if (ing.inventoryItemId) {
-      [invItem] = await db
-        .select()
-        .from(inventoryTable)
-        .where(and(eq(inventoryTable.id, ing.inventoryItemId), eq(inventoryTable.userId, userId)));
+      if (ing.inventoryItemId) {
+        [invItem] = await tx
+          .select()
+          .from(inventoryTable)
+          .where(and(eq(inventoryTable.id, ing.inventoryItemId), eq(inventoryTable.userId, userId)));
+      }
+
+      if (!invItem) {
+        const items = await tx
+          .select()
+          .from(inventoryTable)
+          .where(
+            and(
+              eq(inventoryTable.userId, userId),
+              sql`lower(${inventoryTable.name}) = lower(${ing.name})`
+            )
+          );
+        invItem = items[0];
+      }
+
+      if (invItem) {
+        const newQty = Math.max(0, Number(invItem.quantity) - Number(ing.quantityG));
+        await tx
+          .update(inventoryTable)
+          .set({ quantity: String(newQty) })
+          .where(eq(inventoryTable.id, invItem.id));
+      }
     }
 
-    if (!invItem) {
-      const items = await db
-        .select()
-        .from(inventoryTable)
-        .where(
-          and(
-            eq(inventoryTable.userId, userId),
-            sql`lower(${inventoryTable.name}) = lower(${ing.name})`
-          )
-        );
-      invItem = items[0];
-    }
+    // Mark meal as completed
+    const [marked] = await tx
+      .update(mealPlanMealsTable)
+      .set({ completed: true, completedAt: new Date() })
+      .where(eq(mealPlanMealsTable.id, mealId))
+      .returning();
 
-    if (invItem) {
-      const currentQty = Number(invItem.quantity);
-      const deduct = Number(ing.quantityG);
-      const newQty = Math.max(0, currentQty - deduct);
-      await db
-        .update(inventoryTable)
-        .set({ quantity: String(newQty) })
-        .where(eq(inventoryTable.id, invItem.id));
-    }
-  }
-
-  // Mark meal as completed
-  const [updatedMeal] = await db
-    .update(mealPlanMealsTable)
-    .set({ completed: true, completedAt: new Date() })
-    .where(eq(mealPlanMealsTable.id, mealId))
-    .returning();
-
-  // Create a nutrition log entry in the meals table
-  try {
-    const [mealLog] = await db
+    // Create a nutrition log entry so the dashboard reflects the meal
+    const [mealLog] = await tx
       .insert(mealsTable)
       .values({
         userId,
@@ -339,9 +351,9 @@ router.post("/meal-plans/:id/meals/:mealId/complete", requireAuth, async (req, r
       })
       .returning();
 
-    // Add a single aggregate item to represent the meal's nutrition
+    // Add an aggregate nutrition item for the logged meal
     if (meal.calories !== null && Number(meal.calories) > 0) {
-      await db.insert(mealItemsTable).values({
+      await tx.insert(mealItemsTable).values({
         mealId: mealLog.id,
         foodName: meal.name,
         quantityG: "100",
@@ -352,16 +364,14 @@ router.post("/meal-plans/:id/meals/:mealId/complete", requireAuth, async (req, r
         fiberG: "0",
       });
     }
-  } catch {
-    // Non-fatal: meal log creation is best-effort
-  }
+
+    return { updatedMeal: marked, ingredients: ings };
+  });
 
   res.json(serializeMeal(updatedMeal, ingredients));
 });
 
-// Regenerate is handled by the AI route — forward to it
-// The endpoint is declared but the actual AI logic lives in ai.ts
-// ── PATCH a single ingredient ──────────────────────────────────────────────
+// ── PATCH a single ingredient ─────────────────────────────────────────────────
 router.patch("/meal-plans/:id/meals/:mealId/ingredients/:ingId", requireAuth, async (req, res): Promise<void> => {
   const planId = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   const mealId = parseInt(Array.isArray(req.params.mealId) ? req.params.mealId[0] : req.params.mealId, 10);
@@ -373,6 +383,13 @@ router.patch("/meal-plans/:id/meals/:mealId/ingredients/:ingId", requireAuth, as
     .from(mealPlansTable)
     .where(and(eq(mealPlansTable.id, planId), eq(mealPlansTable.userId, req.auth!.userId)));
   if (!plan) { res.status(404).json({ error: "Meal plan not found" }); return; }
+
+  // Verify meal belongs to this plan — prevents IDOR across plans
+  const [mealCheck] = await db
+    .select({ id: mealPlanMealsTable.id })
+    .from(mealPlanMealsTable)
+    .where(and(eq(mealPlanMealsTable.id, mealId), eq(mealPlanMealsTable.planId, planId)));
+  if (!mealCheck) { res.status(404).json({ error: "Meal not found" }); return; }
 
   const { name, inventoryItemId, available } = req.body as {
     name?: string;
@@ -414,6 +431,7 @@ router.post("/meal-plans/:id/meals/:mealId/regenerate", requireAuth, async (req,
   if (!meal) { res.status(404).json({ error: "Meal not found" }); return; }
 
   // Import AI logic dynamically to avoid circular dep
+  // regenerateSingleMeal fetches sibling meals internally to avoid protein repeats
   const { regenerateSingleMeal } = await import("./ai-meal-planner.js");
   const result = await regenerateSingleMeal({ plan, meal, userId });
 

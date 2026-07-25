@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import {
   db,
   mealPlansTable,
@@ -103,11 +103,12 @@ router.get("/dashboard/today", requireAuth, async (req, res): Promise<void> => {
         .from(mealsTable)
         .where(and(eq(mealsTable.userId, userId), eq(mealsTable.date, today))),
 
-      // Meal plan for today
+      // Meal plan for today — newest first so [0] is always the active/latest plan
       db
         .select()
         .from(mealPlansTable)
         .where(and(eq(mealPlansTable.userId, userId), eq(mealPlansTable.date, today)))
+        .orderBy(desc(mealPlansTable.createdAt))
         .limit(1),
 
       // Supplements

@@ -27,7 +27,6 @@ import {
   useDeleteMealPlanMeal,
   useRegenerateMealPlanMeal,
   useCompleteMealPlanMeal,
-  useReplaceMealIngredient,
   useListGroceryLists,
   useCreateGroceryList,
   useAddGroceryListItem,
@@ -35,8 +34,8 @@ import {
   getListMealPlansQueryKey,
   getGetMealPlanQueryKey,
   getGetDashboardTodayQueryKey,
+  getListGroceryListsQueryKey,
 } from '@workspace/api-client-react';
-import type { MealPlanMealDetail, MealPlanIngredient } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import MealPrepModal from '@/components/MealPrepModal';
@@ -51,77 +50,87 @@ const MEAL_TYPES: { value: MealType; label: string; icon: keyof typeof Feather.g
   { value: 'snack',     label: 'Snack',     icon: 'package' },
 ];
 
-function getMealTypeColor(t: string) {
-  switch (t) {
+function getMealTypeColor(mealType: string): string {
+  switch (mealType) {
     case 'breakfast': return '#F59E0B';
-    case 'lunch':     return '#3B82F6';
-    case 'dinner':    return '#8B5CF6';
-    default:          return '#6B7280';
-  }
-}
-function getMealTypeIcon(t: string): keyof typeof Feather.glyphMap {
-  switch (t) {
-    case 'breakfast': return 'sunrise';
-    case 'lunch':     return 'sun';
-    case 'dinner':    return 'moon';
-    default:          return 'package';
+    case 'lunch': return '#3B82F6';
+    case 'dinner': return '#8B5CF6';
+    default: return '#6B7280';
   }
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+function getMealTypeIcon(mealType: string): keyof typeof Feather.glyphMap {
+  switch (mealType) {
+    case 'breakfast': return 'sunrise';
+    case 'lunch': return 'sun';
+    case 'dinner': return 'moon';
+    default: return 'package';
+  }
+}
 
 function MacroChip({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7, backgroundColor: color + '18' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: color + '20' }}>
       <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color }}>{label}</Text>
-      <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color }}>{Math.round(value)}g</Text>
+      <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color }}>{Math.round(value)}g</Text>
     </View>
   );
 }
 
-// ── Main screen ───────────────────────────────────────────────────────────────
+type PlanMeal = {
+  id: number; name: string; mealType: string; scheduledTime?: string | null;
+  calories?: number | null; proteinG?: number | null; carbsG?: number | null; fatG?: number | null;
+  prepInstructions?: string | null; cookingTimeMinutes?: number | null;
+  completed: boolean; notes?: string | null;
+  ingredients: { id: number; name: string; quantityG: number; unit: string; available: boolean; inventoryItemId?: number | null }[];
+};
 
 export default function MealsScreen() {
-  const colors    = useColors();
-  const insets    = useSafeAreaInsets();
-  const qc        = useQueryClient();
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
   const { token } = useAuth();
 
-  const [selectedDate,    setSelectedDate]    = useState(TODAY);
-  const [showAddMeal,     setShowAddMeal]      = useState(false);
-  const [mealName,        setMealName]         = useState('');
-  const [mealType,        setMealType]         = useState<MealType>('breakfast');
-  const [expandedMeal,    setExpandedMeal]     = useState<number | null>(null);   // logged meals
-  const [expandedPlan,    setExpandedPlan]     = useState<number | null>(null);   // AI plan meals
-  const [generatingPlan,  setGeneratingPlan]   = useState(false);
-  const [addedToGrocery,  setAddedToGrocery]   = useState<Set<number>>(new Set());
-  const [replacingIngId,  setReplacingIngId]   = useState<number | null>(null);
-  const [prepMeal,        setPrepMeal]         = useState<null | {
+  const [selectedDate, setSelectedDate] = useState(TODAY);
+  const [showAddMeal, setShowAddMeal] = useState(false);
+  const [mealName, setMealName] = useState('');
+  const [mealType, setMealType] = useState<MealType>('breakfast');
+  // expandedMeal tracks logged meal expansion; expandedPlanMealId tracks AI plan meal expansion
+  const [expandedMeal, setExpandedMeal] = useState<number | null>(null);
+  const [expandedPlanMealId, setExpandedPlanMealId] = useState<number | null>(null);
+  const [loggedMealId, setLoggedMealId] = useState<number | null>(null); // brief "Logged ✓" state
+  const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [replacingIngId, setReplacingIngId] = useState<number | null>(null); // tracks in-progress replace
+  const [addingGroceryIngId, setAddingGroceryIngId] = useState<number | null>(null);
+  const [showMissingFor, setShowMissingFor] = useState<number | null>(null); // which meal has missing section expanded
+
+  const [prepMeal, setPrepMeal] = useState<null | {
     id: number; name: string; planId: number; mealType: string;
     prepInstructions: string | null; cookingTimeMinutes: number | null;
     ingredients: { name: string; quantityG: number; unit: string; available?: boolean }[];
   }>(null);
 
-  // ── Queries ─────────────────────────────────────────────────────────────────
+  const { data: meals, isLoading: loadingMeals, isRefetching, refetch } = useListMeals({ date: selectedDate });
 
-  const { data: meals, isLoading: loadingMeals, isRefetching, refetch } =
-    useListMeals({ date: selectedDate });
+  const { data: mealPlans, isLoading: loadingPlans, refetch: refetchPlans } = useListMealPlans(
+    { date: selectedDate },
+    { query: { queryKey: getListMealPlansQueryKey({ date: selectedDate }) } }
+  );
+  const todayPlanSummary = mealPlans?.[0] ?? null;
 
-  const { data: mealPlans, isLoading: loadingPlans, refetch: refetchPlans } =
-    useListMealPlans(
-      { date: selectedDate },
-      { query: { queryKey: getListMealPlansQueryKey({ date: selectedDate }) } }
-    );
-  const todayPlan = mealPlans?.[0] ?? null;
-
+  // Fetch full plan detail (with meals + ingredients) when a plan exists
   const { data: planDetail, isLoading: loadingPlanDetail } = useGetMealPlan(
-    todayPlan?.id ?? 0,
-    { query: { enabled: !!todayPlan?.id, queryKey: getGetMealPlanQueryKey(todayPlan?.id ?? 0) } }
+    todayPlanSummary?.id ?? 0,
+    {
+      query: {
+        enabled: !!todayPlanSummary?.id,
+        queryKey: getGetMealPlanQueryKey(todayPlanSummary?.id ?? 0),
+      },
+    }
   );
 
+  // Grocery lists for "Add to Grocery" feature
   const { data: groceryLists } = useListGroceryLists();
-
-  // ── Mutations ────────────────────────────────────────────────────────────────
 
   const generatePlan = useGenerateMealPlan({
     mutation: {
@@ -130,7 +139,6 @@ export default function MealsScreen() {
         qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(data.id) });
         qc.invalidateQueries({ queryKey: getGetDashboardTodayQueryKey({ date: TODAY }) });
         setGeneratingPlan(false);
-        setExpandedPlan(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       },
       onError: () => {
@@ -145,7 +153,7 @@ export default function MealsScreen() {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: getListMealPlansQueryKey({ date: selectedDate }) });
         qc.invalidateQueries({ queryKey: getGetDashboardTodayQueryKey({ date: TODAY }) });
-        setExpandedPlan(null);
+        setExpandedPlanMealId(null);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       },
     },
@@ -154,12 +162,12 @@ export default function MealsScreen() {
   const deletePlanMeal = useDeleteMealPlanMeal({
     mutation: {
       onSuccess: () => {
-        if (todayPlan?.id) {
-          qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(todayPlan.id) });
+        setExpandedPlanMealId(null);
+        if (todayPlanSummary?.id) {
+          qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(todayPlanSummary.id) });
           qc.invalidateQueries({ queryKey: getListMealPlansQueryKey({ date: selectedDate }) });
-          qc.invalidateQueries({ queryKey: getGetDashboardTodayQueryKey({ date: TODAY }) });
         }
-        setExpandedPlan(null);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       },
     },
   });
@@ -167,12 +175,15 @@ export default function MealsScreen() {
   const regenerateMeal = useRegenerateMealPlanMeal({
     mutation: {
       onSuccess: (data) => {
-        if (todayPlan?.id) {
-          qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(todayPlan.id) });
+        if (todayPlanSummary?.id) {
+          qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(todayPlanSummary.id) });
           qc.invalidateQueries({ queryKey: getListMealPlansQueryKey({ date: selectedDate }) });
           qc.invalidateQueries({ queryKey: getGetDashboardTodayQueryKey({ date: TODAY }) });
         }
-        setExpandedPlan(data.id);
+        // Re-open the expanded card for the newly regenerated meal
+        if (data && typeof data === 'object' && 'id' in data) {
+          setExpandedPlanMealId((data as { id: number }).id);
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       },
     },
@@ -180,23 +191,28 @@ export default function MealsScreen() {
 
   const completeMeal = useCompleteMealPlanMeal({
     mutation: {
-      onSuccess: () => {
-        if (todayPlan?.id) {
-          qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(todayPlan.id) });
+      onSuccess: (_data, variables) => {
+        if (todayPlanSummary?.id) {
+          qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(todayPlanSummary.id) });
           qc.invalidateQueries({ queryKey: getListMealPlansQueryKey({ date: selectedDate }) });
         }
         qc.invalidateQueries({ queryKey: getListMealsQueryKey({ date: selectedDate }) });
         qc.invalidateQueries({ queryKey: getGetDashboardTodayQueryKey({ date: TODAY }) });
-        setExpandedPlan(null);
+
+        // Show brief "Logged ✓" state then collapse
+        setLoggedMealId(variables.mealId);
+        setTimeout(() => {
+          setLoggedMealId(null);
+          setExpandedPlanMealId(null);
+        }, 1500);
+
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       },
     },
   });
 
-  const replaceMealIngredient = useReplaceMealIngredient();
-
   const createGroceryList = useCreateGroceryList();
-  const addGroceryItem    = useAddGroceryListItem();
+  const addGroceryItem = useAddGroceryListItem();
 
   const createMeal = useCreateMeal({
     mutation: {
@@ -219,8 +235,6 @@ export default function MealsScreen() {
     },
   });
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
-
   const handleGeneratePlan = () => {
     setGeneratingPlan(true);
     generatePlan.mutate({ data: { date: selectedDate, mealCount: 3 } });
@@ -238,100 +252,87 @@ export default function MealsScreen() {
     ]);
   };
 
-  const handleLogMeal = (planId: number, mealId: number, mealName: string) => {
-    Alert.alert(
-      'Log Meal',
-      `Log "${mealName}" as eaten? This will deduct the ingredients from your inventory and add the nutrition to today's totals.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Meal',
-          onPress: () => completeMeal.mutate({ id: planId, mealId }),
-        },
-      ]
-    );
-  };
-
-  const handleAddToGrocery = useCallback(async (ing: MealPlanIngredient) => {
+  const handleAddToGrocery = useCallback(async (ing: { id: number; name: string; quantityG: number; unit: string }) => {
+    setAddingGroceryIngId(ing.id);
     try {
-      let listId = groceryLists?.[0]?.id;
-      if (!listId) {
+      let listId: number;
+      if (groceryLists && groceryLists.length > 0) {
+        listId = groceryLists[0].id;
+      } else {
         const newList = await createGroceryList.mutateAsync({ data: { name: 'Shopping List' } });
+        qc.invalidateQueries({ queryKey: getListGroceryListsQueryKey() });
         listId = newList.id;
       }
       await addGroceryItem.mutateAsync({
         listId,
-        data: { name: ing.name, quantity: Math.ceil(ing.quantityG / 100), unit: ing.unit, notes: 'From meal plan' },
+        data: { name: ing.name, quantity: ing.quantityG, unit: ing.unit },
       });
-      setAddedToGrocery((prev) => new Set([...prev, ing.id]));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Added to Grocery ✓', `${ing.name} has been added to your grocery list.`);
     } catch {
       Alert.alert('Error', 'Could not add to grocery list. Please try again.');
+    } finally {
+      setAddingGroceryIngId(null);
     }
-  }, [groceryLists, createGroceryList, addGroceryItem]);
+  }, [groceryLists, createGroceryList, addGroceryItem, qc]);
 
-  const handleReplaceIngredient = useCallback(
-    (planId: number, mealId: number, ing: MealPlanIngredient) => {
-      setReplacingIngId(ing.id);
-      replaceMealIngredient.mutate(
-        { data: { ingredientName: ing.name, mealPlanIngredientId: ing.id } },
-        {
-          onSuccess: async (result) => {
-            setReplacingIngId(null);
-            if (!result.found || !result.replacementName) {
-              Alert.alert('No Replacement Found', result.reason || 'No suitable replacement found in your inventory.');
-              return;
-            }
-            Alert.alert(
-              'Replace Ingredient?',
-              `Replace "${ing.name}" with "${result.replacementName}"?\n\n${result.reason}`,
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Replace',
-                  onPress: async () => {
-                    try {
-                      const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
-                      await fetch(
-                        `${baseUrl}/api/meal-plans/${planId}/meals/${mealId}/ingredients/${ing.id}`,
-                        {
-                          method: 'PATCH',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${token}`,
-                          },
-                          body: JSON.stringify({
-                            name: result.replacementName,
-                            inventoryItemId: result.replacementInventoryItemId ?? null,
-                            available: true,
-                          }),
-                        }
-                      );
-                      qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(planId) });
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    } catch {
-                      Alert.alert('Error', 'Could not update ingredient. Please try again.');
-                    }
-                  },
-                },
-              ]
-            );
-          },
-          onError: () => {
-            setReplacingIngId(null);
-            Alert.alert('Error', 'Could not find a replacement. Please try again.');
-          },
-        }
-      );
-    },
-    [replaceMealIngredient, token, qc]
-  );
+  const handleReplaceIngredient = useCallback(async (
+    planId: number,
+    mealId: number,
+    ing: { id: number; name: string; quantityG: number; unit: string }
+  ) => {
+    setReplacingIngId(ing.id);
+    try {
+      const domain = process.env.EXPO_PUBLIC_DOMAIN;
 
-  const planMeals = planDetail?.meals ?? [];
+      // Step 1: Ask AI for a replacement suggestion
+      const aiRes = await fetch(`https://${domain}/api/ai/replace-ingredient`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ingredientName: ing.name, mealPlanIngredientId: ing.id }),
+      });
+      if (!aiRes.ok) {
+        const errBody = await aiRes.json().catch(() => ({})) as { error?: string };
+        Alert.alert('Error', errBody.error ?? 'Could not contact AI. Please try again.');
+        return;
+      }
+      const aiData = await aiRes.json() as { found: boolean; replacementName?: string; replacementInventoryItemId?: number; reason?: string };
+
+      if (!aiData.found || !aiData.replacementName) {
+        Alert.alert('No Replacement Found', aiData.reason ?? 'Could not find a suitable replacement from your inventory.');
+        return;
+      }
+
+      // Step 2: Persist the replacement in the database
+      const patchRes = await fetch(`https://${domain}/api/meal-plans/${planId}/meals/${mealId}/ingredients/${ing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: aiData.replacementName,
+          inventoryItemId: aiData.replacementInventoryItemId ?? null,
+          available: !!aiData.replacementInventoryItemId,
+        }),
+      });
+      if (!patchRes.ok) {
+        const errBody = await patchRes.json().catch(() => ({})) as { error?: string };
+        Alert.alert('Error', errBody.error ?? 'Could not save the replacement. Please try again.');
+        return;
+      }
+
+      qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(planId) });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Ingredient Replaced ✓', `"${ing.name}" replaced with "${aiData.replacementName}".\n\n${aiData.reason ?? ''}`);
+    } catch {
+      Alert.alert('Error', 'Could not replace ingredient. Please try again.');
+    } finally {
+      setReplacingIngId(null);
+    }
+  }, [qc, token]);
+
   const styles = makeStyles(colors);
   const tabBarHeight = Platform.OS === 'ios' ? 80 : 72;
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const planMeals = (planDetail as unknown as { meals?: PlanMeal[] } | undefined)?.meals as PlanMeal[] | undefined;
 
   return (
     <View style={styles.container}>
@@ -371,17 +372,25 @@ export default function MealsScreen() {
           />
         }
       >
-        {/* ── AI Meal Plan ── */}
+        {/* ── AI Meal Plan Section ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>🤖 AI Meal Plan</Text>
-            {todayPlan && (
+            {todayPlanSummary && (
               <TouchableOpacity
                 onPress={() =>
-                  Alert.alert('Delete Plan', 'This will delete the entire AI plan for this day.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => deletePlan.mutate({ id: todayPlan.id }) },
-                  ])
+                  Alert.alert(
+                    'Delete Meal Plan',
+                    'This will delete the entire AI-generated plan for this day.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete Plan',
+                        style: 'destructive',
+                        onPress: () => deletePlan.mutate({ id: todayPlanSummary.id }),
+                      },
+                    ]
+                  )
                 }
               >
                 <Feather name="trash-2" size={16} color={colors.destructive} />
@@ -389,11 +398,13 @@ export default function MealsScreen() {
             )}
           </View>
 
+          {/* Loading state */}
           {(loadingPlans || loadingPlanDetail) && (
             <ActivityIndicator color={colors.primary} style={{ paddingVertical: 28 }} />
           )}
 
-          {!loadingPlans && !todayPlan && (
+          {/* No plan — generate CTA */}
+          {!loadingPlans && !todayPlanSummary && (
             <TouchableOpacity
               style={styles.generateCard}
               onPress={handleGeneratePlan}
@@ -410,7 +421,9 @@ export default function MealsScreen() {
                 <>
                   <Feather name="cpu" size={30} color={colors.primary} />
                   <Text style={styles.generateTitle}>Generate My Meal Plan</Text>
-                  <Text style={styles.generateSubtext}>AI plans meals around your goals, inventory and nutrition targets</Text>
+                  <Text style={styles.generateSubtext}>
+                    AI will plan meals based on your goals, inventory, and nutrition targets
+                  </Text>
                   <View style={styles.generateBtn}>
                     <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Generate →</Text>
                   </View>
@@ -419,42 +432,54 @@ export default function MealsScreen() {
             </TouchableOpacity>
           )}
 
-          {todayPlan && !loadingPlanDetail && (
+          {/* Plan exists — show meals */}
+          {todayPlanSummary && !loadingPlanDetail && planMeals && (
             <>
-              {/* Totals row */}
+              {/* Nutrition totals row */}
               <View style={styles.planTotals}>
-                {[
-                  { label: 'kcal',    value: todayPlan.totalCalories, color: colors.foreground },
-                  { label: 'protein', value: todayPlan.totalProteinG,  color: '#ef4444' },
-                  { label: 'carbs',   value: todayPlan.totalCarbsG,    color: '#f59e0b' },
-                  { label: 'fat',     value: todayPlan.totalFatG,      color: '#a78bfa' },
-                ].map((item, i, arr) => (
-                  <React.Fragment key={item.label}>
-                    <View style={{ alignItems: 'center' }}>
-                      <Text style={[styles.planTotalNum, { color: item.color }]}>{Math.round(item.value)}</Text>
-                      <Text style={styles.planTotalLabel}>{item.label}</Text>
-                    </View>
-                    {i < arr.length - 1 && <View style={{ width: 1, backgroundColor: colors.border }} />}
-                  </React.Fragment>
-                ))}
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={styles.planTotalNum}>{Math.round(todayPlanSummary.totalCalories)}</Text>
+                  <Text style={styles.planTotalLabel}>kcal</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: colors.border }} />
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={[styles.planTotalNum, { color: '#ef4444' }]}>{Math.round(todayPlanSummary.totalProteinG)}g</Text>
+                  <Text style={styles.planTotalLabel}>protein</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: colors.border }} />
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={[styles.planTotalNum, { color: '#f59e0b' }]}>{Math.round(todayPlanSummary.totalCarbsG)}g</Text>
+                  <Text style={styles.planTotalLabel}>carbs</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: colors.border }} />
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={[styles.planTotalNum, { color: '#a78bfa' }]}>{Math.round(todayPlanSummary.totalFatG)}g</Text>
+                  <Text style={styles.planTotalLabel}>fat</Text>
+                </View>
               </View>
 
-              {/* Meal cards */}
-              {planMeals.map((meal: MealPlanMealDetail) => {
-                const isExpanded = expandedPlan === meal.id;
+              {/* Individual meal cards — tap to expand */}
+              {planMeals.map((meal) => {
                 const mealColor = getMealTypeColor(meal.mealType);
-                const missing = meal.ingredients.filter((i) => !i.available);
-                const hasMissing = missing.length > 0;
+                const isExpanded = expandedPlanMealId === meal.id;
+                const isLogged = loggedMealId === meal.id;
+                const missingIngredients = meal.ingredients.filter((i) => !i.available);
+                const hasMissing = missingIngredients.length > 0 && !meal.completed;
+                const isMissingExpanded = showMissingFor === meal.id;
 
                 return (
-                  <View key={meal.id} style={[styles.planMealCard, meal.completed && { opacity: 0.6 }]}>
-                    {/* ── Card header (always visible, tappable) ── */}
+                  <View key={meal.id} style={[styles.planMealCard, meal.completed && { opacity: 0.65 }]}>
+                    {/* Card header — tappable to expand */}
                     <TouchableOpacity
                       style={styles.planMealHeader}
-                      onPress={() => !meal.completed && setExpandedPlan(isExpanded ? null : meal.id)}
+                      onPress={() => {
+                        if (!meal.completed) {
+                          setExpandedPlanMealId(isExpanded ? null : meal.id);
+                        }
+                      }}
                       activeOpacity={0.8}
                     >
-                      <View style={[styles.planMealIcon, { backgroundColor: mealColor + '1A' }]}>
+                      <View style={[styles.planMealIcon, { backgroundColor: mealColor + '20' }]}>
                         <Feather name={getMealTypeIcon(meal.mealType)} size={17} color={mealColor} />
                       </View>
                       <View style={{ flex: 1 }}>
@@ -463,182 +488,220 @@ export default function MealsScreen() {
                           {meal.mealType}
                           {meal.scheduledTime ? ` · ${meal.scheduledTime}` : ''}
                           {meal.calories ? ` · ${Math.round(meal.calories)} kcal` : ''}
-                          {hasMissing && !meal.completed ? ` · ⚠️ ${missing.length} missing` : ''}
                         </Text>
                       </View>
+
                       {meal.completed ? (
                         <View style={styles.completedBadge}>
-                          <Feather name="check-circle" size={14} color="#22C55E" />
-                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#22C55E', marginLeft: 3 }}>Logged</Text>
+                          <Feather name="check" size={13} color="#22C55E" />
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#22C55E', marginLeft: 3 }}>Done</Text>
                         </View>
                       ) : (
-                        <Feather name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.mutedForeground} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          {hasMissing && !isExpanded && (
+                            <View style={[styles.missingBadge, { backgroundColor: colors.destructive + '20' }]}>
+                              <Feather name="alert-circle" size={11} color={colors.destructive} />
+                              <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: colors.destructive, marginLeft: 2 }}>
+                                {missingIngredients.length}
+                              </Text>
+                            </View>
+                          )}
+                          <Feather
+                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={16}
+                            color={colors.mutedForeground}
+                          />
+                        </View>
                       )}
                     </TouchableOpacity>
 
-                    {/* ── Expanded detail ── */}
+                    {/* Expanded body */}
                     {isExpanded && !meal.completed && (
-                      <View style={styles.planMealBody}>
-                        {/* Ingredients */}
+                      <View style={styles.expandedBody}>
+                        {/* Macro chips */}
+                        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                          <MacroChip label="P" value={meal.proteinG ?? 0} color="#ef4444" />
+                          <MacroChip label="C" value={meal.carbsG ?? 0} color="#f59e0b" />
+                          <MacroChip label="F" value={meal.fatG ?? 0} color="#a78bfa" />
+                          {meal.cookingTimeMinutes && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: colors.muted }}>
+                              <Feather name="clock" size={10} color={colors.mutedForeground} />
+                              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.mutedForeground }}>{meal.cookingTimeMinutes}m</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        {/* Ingredients list */}
                         {meal.ingredients.length > 0 && (
-                          <View style={styles.ingSection}>
-                            <Text style={styles.ingSectionLabel}>INGREDIENTS</Text>
+                          <View style={{ marginBottom: 12 }}>
+                            <Text style={styles.subsectionLabel}>INGREDIENTS</Text>
                             {meal.ingredients.map((ing) => (
-                              <View key={ing.id} style={styles.ingRow}>
-                                <View style={[styles.ingDot, { backgroundColor: ing.available ? '#22C55E' : '#EF4444' }]} />
-                                <Text style={[styles.ingName, !ing.available && { color: colors.mutedForeground }]}>
-                                  {ing.quantityG}{ing.unit} {ing.name}
+                              <View key={ing.id} style={styles.ingredientRow}>
+                                <View style={[styles.ingredientDot, { backgroundColor: ing.available ? '#22C55E' : colors.destructive }]} />
+                                <Text style={[styles.ingredientName, !ing.available && { color: colors.mutedForeground }]}>
+                                  {ing.name}
                                 </Text>
-                                {!ing.available && (
-                                  <View style={styles.missingTag}>
-                                    <Text style={styles.missingTagText}>missing</Text>
-                                  </View>
-                                )}
+                                <Text style={styles.ingredientQty}>{ing.quantityG}{ing.unit}</Text>
                               </View>
                             ))}
                           </View>
                         )}
 
-                        {/* Macros row */}
-                        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
-                          {meal.proteinG != null && <MacroChip label="P" value={meal.proteinG} color="#ef4444" />}
-                          {meal.carbsG   != null && <MacroChip label="C" value={meal.carbsG}   color="#f59e0b" />}
-                          {meal.fatG     != null && <MacroChip label="F" value={meal.fatG}     color="#a78bfa" />}
-                          {meal.cookingTimeMinutes != null && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 'auto' }}>
-                              <Feather name="clock" size={12} color={colors.mutedForeground} />
-                              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.mutedForeground }}>
-                                {meal.cookingTimeMinutes} min
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-
-                        {/* Notes */}
-                        {meal.notes && (
-                          <Text style={styles.mealNotes}>{meal.notes}</Text>
-                        )}
-
-                        {/* Action buttons */}
-                        <View style={styles.actionRow}>
-                          {/* Prep */}
-                          <TouchableOpacity
-                            style={styles.actionBtn}
-                            onPress={() =>
-                              setPrepMeal({
-                                id: meal.id,
-                                name: meal.name,
-                                planId: todayPlan.id,
-                                mealType: meal.mealType,
-                                prepInstructions: meal.prepInstructions ?? null,
-                                cookingTimeMinutes: meal.cookingTimeMinutes ?? null,
-                                ingredients: meal.ingredients.map((i) => ({
-                                  name: i.name, quantityG: i.quantityG, unit: i.unit, available: i.available,
-                                })),
-                              })
-                            }
-                          >
-                            <Text style={{ fontSize: 14 }}>🍳</Text>
-                            <Text style={styles.actionBtnText}>Prep</Text>
-                          </TouchableOpacity>
-
-                          {/* Replace */}
-                          <TouchableOpacity
-                            style={styles.actionBtn}
-                            disabled={regenerateMeal.isPending}
-                            onPress={() =>
-                              Alert.alert('Replace Meal?', 'AI will suggest a different meal for this slot.', [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'Replace', onPress: () => regenerateMeal.mutate({ id: todayPlan.id, mealId: meal.id }) },
-                              ])
-                            }
-                          >
-                            {regenerateMeal.isPending ? (
-                              <ActivityIndicator size="small" color={colors.primary} />
-                            ) : (
-                              <>
-                                <Feather name="refresh-cw" size={14} color={colors.primary} />
-                                <Text style={[styles.actionBtnText, { color: colors.primary }]}>Replace</Text>
-                              </>
-                            )}
-                          </TouchableOpacity>
-
-                          {/* Delete */}
-                          <TouchableOpacity
-                            style={styles.actionBtn}
-                            onPress={() =>
-                              Alert.alert('Remove Meal?', `Remove "${meal.name}" from today's plan?`, [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'Remove', style: 'destructive', onPress: () => deletePlanMeal.mutate({ id: todayPlan.id, mealId: meal.id }) },
-                              ])
-                            }
-                          >
-                            <Feather name="trash-2" size={14} color={colors.destructive} />
-                            <Text style={[styles.actionBtnText, { color: colors.destructive }]}>Delete</Text>
-                          </TouchableOpacity>
-
-                          {/* Log Meal */}
-                          <TouchableOpacity
-                            style={styles.logMealBtn}
-                            disabled={completeMeal.isPending}
-                            onPress={() => handleLogMeal(todayPlan.id, meal.id, meal.name)}
-                          >
-                            {completeMeal.isPending ? (
-                              <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                              <>
-                                <Feather name="check" size={14} color="#fff" />
-                                <Text style={styles.logMealBtnText}>Log Meal</Text>
-                              </>
-                            )}
-                          </TouchableOpacity>
-                        </View>
-
                         {/* Missing Ingredients section */}
                         {hasMissing && (
-                          <View style={styles.missingSection}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                              <Feather name="alert-triangle" size={13} color="#F59E0B" />
-                              <Text style={styles.missingSectionTitle}>Missing Ingredients</Text>
-                            </View>
-                            {missing.map((ing) => {
-                              const wasAdded = addedToGrocery.has(ing.id);
-                              const isReplacing = replacingIngId === ing.id;
-                              return (
-                                <View key={ing.id} style={styles.missingIngRow}>
-                                  <View style={{ flex: 1 }}>
-                                    <Text style={styles.missingIngName}>{ing.name}</Text>
-                                    <Text style={styles.missingIngQty}>{ing.quantityG}{ing.unit} needed</Text>
-                                  </View>
-                                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                                    <TouchableOpacity
-                                      style={[styles.missingAction, wasAdded && styles.missingActionDone]}
-                                      disabled={wasAdded || addGroceryItem.isPending}
-                                      onPress={() => handleAddToGrocery(ing)}
-                                    >
-                                      <Feather name={wasAdded ? 'check' : 'shopping-cart'} size={12} color={wasAdded ? '#22C55E' : colors.primary} />
-                                      <Text style={[styles.missingActionText, wasAdded && { color: '#22C55E' }]}>
-                                        {wasAdded ? 'Added' : 'Grocery'}
-                                      </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                      style={styles.missingAction}
-                                      disabled={isReplacing}
-                                      onPress={() => handleReplaceIngredient(todayPlan.id, meal.id, ing)}
-                                    >
-                                      {isReplacing ? (
-                                        <ActivityIndicator size="small" color={colors.primary} />
-                                      ) : (
-                                        <>
-                                          <Feather name="refresh-cw" size={12} color={colors.primary} />
-                                          <Text style={styles.missingActionText}>Replace</Text>
-                                        </>
-                                      )}
-                                    </TouchableOpacity>
-                                  </View>
+                          <View style={styles.missingCard}>
+                            <TouchableOpacity
+                              style={styles.missingCardHeader}
+                              onPress={() => setShowMissingFor(isMissingExpanded ? null : meal.id)}
+                              activeOpacity={0.8}
+                            >
+                              <Feather name="alert-triangle" size={14} color={colors.destructive} />
+                              <Text style={styles.missingCardTitle}>
+                                {missingIngredients.length} Missing Ingredient{missingIngredients.length !== 1 ? 's' : ''}
+                              </Text>
+                              <Feather
+                                name={isMissingExpanded ? 'chevron-up' : 'chevron-down'}
+                                size={13}
+                                color={colors.destructive}
+                                style={{ marginLeft: 'auto' }}
+                              />
+                            </TouchableOpacity>
+
+                            {isMissingExpanded && missingIngredients.map((ing) => (
+                              <View key={ing.id} style={styles.missingIngRow}>
+                                <Text style={styles.missingIngName} numberOfLines={1}>{ing.name}</Text>
+                                <Text style={styles.missingIngQty}>{ing.quantityG}{ing.unit}</Text>
+                                <View style={{ flexDirection: 'row', gap: 6 }}>
+                                  <TouchableOpacity
+                                    style={[styles.missingIngBtn, { backgroundColor: colors.primary + '15' }]}
+                                    disabled={addingGroceryIngId === ing.id}
+                                    onPress={() => handleAddToGrocery(ing)}
+                                  >
+                                    {addingGroceryIngId === ing.id ? (
+                                      <ActivityIndicator size="small" color={colors.primary} />
+                                    ) : (
+                                      <Text style={[styles.missingIngBtnText, { color: colors.primary }]}>+ Grocery</Text>
+                                    )}
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    style={[styles.missingIngBtn, { backgroundColor: colors.muted }]}
+                                    disabled={replacingIngId === ing.id}
+                                    onPress={() => handleReplaceIngredient(todayPlanSummary.id, meal.id, ing)}
+                                  >
+                                    {replacingIngId === ing.id ? (
+                                      <ActivityIndicator size="small" color={colors.foreground} />
+                                    ) : (
+                                      <Text style={[styles.missingIngBtnText, { color: colors.foreground }]}>Replace</Text>
+                                    )}
+                                  </TouchableOpacity>
                                 </View>
-                              );
-                            })}
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                        {/* Action button row */}
+                        {isLogged ? (
+                          // Brief "Logged ✓" state
+                          <View style={styles.loggedState}>
+                            <Feather name="check-circle" size={18} color="#22C55E" />
+                            <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#22C55E', marginLeft: 6 }}>
+                              Logged ✓
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.actionRow}>
+                            {/* Prep */}
+                            <TouchableOpacity
+                              style={styles.actionBtn}
+                              onPress={() =>
+                                setPrepMeal({
+                                  id: meal.id,
+                                  name: meal.name,
+                                  planId: todayPlanSummary.id,
+                                  mealType: meal.mealType,
+                                  prepInstructions: meal.prepInstructions ?? null,
+                                  cookingTimeMinutes: meal.cookingTimeMinutes ?? null,
+                                  ingredients: meal.ingredients.map((i) => ({
+                                    name: i.name,
+                                    quantityG: i.quantityG,
+                                    unit: i.unit,
+                                    available: i.available,
+                                  })),
+                                })
+                              }
+                            >
+                              <Text style={{ fontSize: 13 }}>👨‍🍳</Text>
+                              <Text style={styles.actionBtnText}>Prep</Text>
+                            </TouchableOpacity>
+
+                            {/* Replace meal */}
+                            <TouchableOpacity
+                              style={styles.actionBtn}
+                              disabled={regenerateMeal.isPending}
+                              onPress={() =>
+                                Alert.alert('Replace Meal?', 'AI will suggest a different meal for this slot.', [
+                                  { text: 'Cancel', style: 'cancel' },
+                                  {
+                                    text: 'Replace',
+                                    onPress: () => regenerateMeal.mutate({ id: todayPlanSummary.id, mealId: meal.id }),
+                                  },
+                                ])
+                              }
+                            >
+                              {regenerateMeal.isPending ? (
+                                <ActivityIndicator size="small" color={colors.primary} />
+                              ) : (
+                                <Feather name="refresh-cw" size={14} color={colors.primary} />
+                              )}
+                              <Text style={[styles.actionBtnText, { color: colors.primary }]}>Replace</Text>
+                            </TouchableOpacity>
+
+                            {/* Delete */}
+                            <TouchableOpacity
+                              style={styles.actionBtn}
+                              onPress={() =>
+                                Alert.alert('Remove Meal?', `Remove "${meal.name}" from today's plan?`, [
+                                  { text: 'Cancel', style: 'cancel' },
+                                  {
+                                    text: 'Remove',
+                                    style: 'destructive',
+                                    onPress: () => deletePlanMeal.mutate({ id: todayPlanSummary.id, mealId: meal.id }),
+                                  },
+                                ])
+                              }
+                            >
+                              <Feather name="trash-2" size={14} color={colors.destructive} />
+                              <Text style={[styles.actionBtnText, { color: colors.destructive }]}>Delete</Text>
+                            </TouchableOpacity>
+
+                            {/* Log Meal — green pill */}
+                            <TouchableOpacity
+                              style={styles.logMealBtn}
+                              disabled={completeMeal.isPending}
+                              onPress={() =>
+                                Alert.alert(
+                                  'Log Meal',
+                                  'Mark this meal as eaten? This will deduct ingredients from your inventory and update your nutrition totals.',
+                                  [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    {
+                                      text: 'Log Meal',
+                                      onPress: () => completeMeal.mutate({ id: todayPlanSummary.id, mealId: meal.id }),
+                                    },
+                                  ]
+                                )
+                              }
+                            >
+                              {completeMeal.isPending ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                              ) : (
+                                <>
+                                  <Feather name="check" size={14} color="#fff" />
+                                  <Text style={styles.logMealBtnText}>Log Meal</Text>
+                                </>
+                              )}
+                            </TouchableOpacity>
                           </View>
                         )}
                       </View>
@@ -647,40 +710,42 @@ export default function MealsScreen() {
                 );
               })}
 
-              {/* Regenerate whole plan */}
-              {planMeals.length > 0 && (
-                <TouchableOpacity
-                  style={styles.regeneratePlanBtn}
-                  onPress={handleGeneratePlan}
-                  disabled={generatingPlan}
-                >
-                  {generatingPlan ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <>
-                      <Feather name="refresh-cw" size={14} color={colors.primary} />
-                      <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.primary, marginLeft: 6 }}>
-                        Regenerate Entire Plan
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-
-              {/* Edge case: plan exists but no meals */}
-              {planMeals.length === 0 && (
-                <TouchableOpacity style={styles.regeneratePlanBtn} onPress={handleGeneratePlan} disabled={generatingPlan}>
-                  <Feather name="refresh-cw" size={14} color={colors.primary} />
-                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.primary, marginLeft: 6 }}>
-                    Regenerate Plan
-                  </Text>
-                </TouchableOpacity>
-              )}
+              {/* Regenerate entire plan */}
+              <TouchableOpacity
+                style={styles.regeneratePlanBtn}
+                onPress={handleGeneratePlan}
+                disabled={generatingPlan}
+              >
+                {generatingPlan ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <Feather name="refresh-cw" size={14} color={colors.primary} />
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.primary, marginLeft: 6 }}>
+                      Regenerate Entire Plan
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </>
+          )}
+
+          {/* Plan exists but no meals yet (edge case) */}
+          {todayPlanSummary && !loadingPlanDetail && !planMeals && (
+            <TouchableOpacity
+              style={styles.regeneratePlanBtn}
+              onPress={handleGeneratePlan}
+              disabled={generatingPlan}
+            >
+              <Feather name="refresh-cw" size={14} color={colors.primary} />
+              <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.primary, marginLeft: 6 }}>
+                Regenerate Plan
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
 
-        {/* ── Logged Meals ── */}
+        {/* ── Logged Meals Section ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>📋 Logged Meals</Text>
@@ -719,8 +784,8 @@ export default function MealsScreen() {
                   <View style={styles.expandedBody}>
                     <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
                       <MacroChip label="P" value={meal.totalProteinG} color="#ef4444" />
-                      <MacroChip label="C" value={meal.totalCarbsG}   color="#f59e0b" />
-                      <MacroChip label="F" value={meal.totalFatG}     color="#a78bfa" />
+                      <MacroChip label="C" value={meal.totalCarbsG} color="#f59e0b" />
+                      <MacroChip label="F" value={meal.totalFatG} color="#a78bfa" />
                     </View>
                     {meal.items.length === 0 ? (
                       <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: colors.mutedForeground }}>No items recorded</Text>
@@ -801,7 +866,7 @@ export default function MealsScreen() {
         </View>
       </Modal>
 
-      {/* ── Prep Modal ── */}
+      {/* ── Meal Prep Modal ── */}
       {prepMeal && (
         <MealPrepModal
           visible={!!prepMeal}
@@ -828,8 +893,6 @@ export default function MealsScreen() {
     </View>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
 
 function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
@@ -858,7 +921,9 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
     },
     generateTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: colors.foreground },
     generateSubtext: { fontSize: 13, fontFamily: 'Inter_400Regular', color: colors.mutedForeground, textAlign: 'center', lineHeight: 20 },
-    generateBtn: { backgroundColor: colors.primary, paddingHorizontal: 26, paddingVertical: 12, borderRadius: 12, marginTop: 4 },
+    generateBtn: {
+      backgroundColor: colors.primary, paddingHorizontal: 26, paddingVertical: 12, borderRadius: 12, marginTop: 4,
+    },
     planTotals: {
       flexDirection: 'row', backgroundColor: colors.card, borderRadius: 12, padding: 14,
       borderWidth: 1, borderColor: colors.border, marginBottom: 10,
@@ -866,73 +931,94 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
     },
     planTotalNum: { fontSize: 17, fontFamily: 'Inter_700Bold', color: colors.foreground },
     planTotalLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.mutedForeground, marginTop: 2 },
-    // Plan meal cards
     planMealCard: {
-      backgroundColor: colors.card, borderRadius: 14, marginBottom: 8,
+      backgroundColor: colors.card, borderRadius: 12, marginBottom: 8,
       borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
     },
-    planMealHeader: { flexDirection: 'row', alignItems: 'center', padding: 13, gap: 10 },
-    planMealIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    planMealHeader: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
+    planMealIcon: {
+      width: 36, height: 36, borderRadius: 10,
+      alignItems: 'center', justifyContent: 'center',
+    },
     planMealName: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: colors.foreground },
     planMealMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', color: colors.mutedForeground, marginTop: 1 },
     completedBadge: {
       flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: '#22C55E18',
+      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+      backgroundColor: '#22C55E20',
     },
-    // Expanded body
-    planMealBody: {
-      paddingHorizontal: 14, paddingBottom: 14, paddingTop: 2,
-      borderTopWidth: 1, borderTopColor: colors.border,
+    missingBadge: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6,
     },
-    ingSection: { marginBottom: 10, marginTop: 8 },
-    ingSectionLabel: { fontSize: 10, fontFamily: 'Inter_700Bold', color: colors.mutedForeground, letterSpacing: 0.8, marginBottom: 6 },
-    ingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 3 },
-    ingDot: { width: 7, height: 7, borderRadius: 4 },
-    ingName: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.foreground },
-    missingTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: '#EF444415' },
-    missingTagText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#EF4444' },
-    mealNotes: { fontSize: 12, fontFamily: 'Inter_400Regular', color: colors.mutedForeground, marginBottom: 10, marginTop: 4, lineHeight: 18 },
-    // Action row
-    actionRow: { flexDirection: 'row', gap: 6, marginTop: 12, marginBottom: 4 },
-    actionBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8,
-      backgroundColor: colors.muted, flex: 1, justifyContent: 'center',
+    expandedBody: {
+      paddingHorizontal: 14, paddingBottom: 14,
+      borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12,
     },
-    actionBtnText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: colors.foreground },
-    logMealBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 5,
-      paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8,
-      backgroundColor: colors.primary, flex: 1.3, justifyContent: 'center',
+    subsectionLabel: {
+      fontSize: 10, fontFamily: 'Inter_700Bold', color: colors.mutedForeground,
+      letterSpacing: 0.8, marginBottom: 6,
     },
-    logMealBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#fff' },
-    // Missing ingredients section
-    missingSection: {
-      marginTop: 12, backgroundColor: '#F59E0B08',
-      borderRadius: 10, padding: 12,
-      borderWidth: 1, borderColor: '#F59E0B30',
+    ingredientRow: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingVertical: 5,
     },
-    missingSectionTitle: { fontSize: 12, fontFamily: 'Inter_700Bold', color: '#B45309' },
+    ingredientDot: { width: 7, height: 7, borderRadius: 4, marginRight: 8 },
+    ingredientName: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.foreground },
+    ingredientQty: { fontSize: 12, fontFamily: 'Inter_400Regular', color: colors.mutedForeground },
+    missingCard: {
+      borderRadius: 10, marginBottom: 12,
+      borderWidth: 1, borderColor: colors.destructive + '30',
+      backgroundColor: colors.destructive + '08', overflow: 'hidden',
+    },
+    missingCardHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: 12, paddingVertical: 9,
+    },
+    missingCardTitle: {
+      fontSize: 12, fontFamily: 'Inter_600SemiBold', color: colors.destructive,
+    },
     missingIngRow: {
-      flexDirection: 'row', alignItems: 'center', paddingVertical: 7,
-      borderBottomWidth: 1, borderBottomColor: '#F59E0B20',
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: 12, paddingVertical: 7,
+      borderTopWidth: 1, borderTopColor: colors.destructive + '15',
     },
-    missingIngName: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.foreground },
-    missingIngQty: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.mutedForeground, marginTop: 1 },
-    missingAction: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7,
-      backgroundColor: colors.primary + '15', borderWidth: 1, borderColor: colors.primary + '30',
+    missingIngName: { flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: colors.foreground },
+    missingIngQty: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.mutedForeground, marginRight: 2 },
+    missingIngBtn: {
+      paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, minWidth: 60, alignItems: 'center',
     },
-    missingActionDone: { backgroundColor: '#22C55E15', borderColor: '#22C55E30' },
-    missingActionText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: colors.primary },
-    // Regenerate plan button
+    missingIngBtnText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+    actionRow: {
+      flexDirection: 'row', gap: 6, alignItems: 'center',
+    },
+    actionBtn: {
+      flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+      paddingVertical: 8, borderRadius: 10,
+      backgroundColor: colors.muted,
+    },
+    actionBtnText: {
+      fontSize: 10, fontFamily: 'Inter_600SemiBold', color: colors.foreground,
+    },
+    logMealBtn: {
+      flex: 1.8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+      paddingVertical: 10, borderRadius: 10,
+      backgroundColor: '#22C55E',
+    },
+    logMealBtnText: {
+      fontSize: 13, fontFamily: 'Inter_700Bold', color: '#fff',
+    },
+    loggedState: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 12, borderRadius: 10,
+      backgroundColor: '#22C55E15',
+    },
     regeneratePlanBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       paddingVertical: 10, borderRadius: 10, marginTop: 4,
-      borderWidth: 1, borderColor: colors.primary + '60', backgroundColor: colors.primary + '10',
+      borderWidth: 1, borderColor: colors.primary + '60',
+      backgroundColor: colors.primary + '10',
     },
-    // Empty / logged meals
     emptyCard: {
       backgroundColor: colors.card, borderRadius: 16, padding: 28,
       alignItems: 'center', gap: 8, borderWidth: 1, borderColor: colors.border,
@@ -945,13 +1031,11 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
     mealName: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: colors.foreground },
     mealMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', color: colors.mutedForeground, marginTop: 1 },
     mealCal: { fontSize: 14, fontFamily: 'Inter_700Bold', color: colors.primary, marginBottom: 2 },
-    expandedBody: { paddingHorizontal: 14, paddingBottom: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
     itemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
     itemName: { fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.foreground },
     itemDetail: { fontSize: 12, fontFamily: 'Inter_400Regular', color: colors.mutedForeground },
     deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingVertical: 6 },
     deleteBtnText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: colors.destructive },
-    // Modals
     modalContainer: { flex: 1, backgroundColor: colors.background },
     modalHeader: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

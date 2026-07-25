@@ -1,34 +1,33 @@
 ---
 name: NutriAI Meal System
-description: Architecture decisions and gotchas for the meal planning + logging system.
+description: Durable decisions and constraints for the meal planning + logging system.
 ---
 
-## Ingredient availability matching
-- `(eq as any)(inventoryTable.name, ing.name)` was case-sensitive — replaced with normalised string comparison in `matchIngredientToInventory()`.
-- Matching priority: explicit `inventoryItemId` from AI → normalised exact name → fuzzy partial/singular-plural.
-- AI prompt now includes `ID:{n}` prefix on every inventory line so the model can include the ID in its JSON (`"inventoryItemId": 42`) and skip name-matching entirely.
+## Ingredient matching must prefer inventory ID over name
 
-**Why:** Name-based matching was the root cause of false "missing ingredient" alerts.
+AI prompt includes `ID:{n}` prefix on every inventory line so the model can output `"inventoryItemId": 42` in its JSON. Matching priority in `matchIngredientToInventory()`: explicit ID → normalised exact name → fuzzy partial/singular-plural. Name-only matching was the root cause of false "missing ingredient" alerts.
 
-## AI prompt rules enforced
-- One primary protein per meal (never chicken+salmon in one meal).
-- Different protein across all meals in the day (breakfast eggs → lunch chicken).
-- Meal structure: Protein + Carb + Veg + optional Fat + Seasoning.
-- Natural meal names baked into the system prompt with examples.
-- `regenerateSingleMeal` fetches sibling meals from DB and passes them to the prompt to prevent repetition.
+**Why:** Case-sensitive DB equality was producing false negatives even when the user had the item in their pantry.
 
-## Ingredient PATCH endpoint
-- `PATCH /meal-plans/:id/meals/:mealId/ingredients/:ingId` added to `meal-plans.ts`.
-- Not in OpenAPI spec / codegen — called directly via `fetch` in `meals.tsx` using `token` from `useAuth()` and `process.env.EXPO_PUBLIC_DOMAIN`.
+## One plan per (userId, date) enforced at DB + application level
 
-**Why:** Avoided codegen round-trip for a single narrow endpoint.
+A unique index on `meal_plans(user_id, date)` is the authoritative guard. Application code (AI generate + manual POST) must also delete-or-check before inserting to avoid relying solely on DB error handling.
 
-## meals.tsx UX model
-- `expandedPlan: number | null` — which AI plan meal is expanded (separate from `expandedMeal` for logged meals).
-- Expanded card shows: ingredient list with green/red dot + "missing" tag, macro chips, cooking time, action row (Prep | Replace | Delete | Log Meal).
-- "Log Meal" (not a bare checkmark) triggers `completeMealPlanMeal` which deducts inventory + creates log entry + invalidates plan/meals/dashboard queries.
-- Missing Ingredients section: per-ingredient "Add to Grocery" (via `useListGroceryLists` + `useCreateGroceryList` + `useAddGroceryListItem`) and "Replace Ingredient" (via `useReplaceMealIngredient` + ingredient PATCH).
-- `addedToGrocery: Set<number>` tracks which ingredient IDs were added this session for visual feedback.
+**Why:** Without the constraint, rapid re-generate or concurrent requests created multiple plans for the same day. The client picks `plans?.[0]` so the "active" plan was non-deterministic without `createdAt DESC` ordering.
 
-## Base URL for direct fetch calls
-`https://${process.env.EXPO_PUBLIC_DOMAIN}` — set in `artifacts/mobile/app/_layout.tsx` via `setBaseUrl`.
+## IDOR guard on ingredient PATCH
+
+`PATCH /meal-plans/:id/meals/:mealId/ingredients/:ingId` must verify:
+1. Plan belongs to authenticated user.
+2. Meal belongs to that plan.
+3. Only then update ingredient by `(ingId, mealId)`.
+
+Skipping step 2 would let any user patch another user's ingredient by guessing IDs.
+
+## Completion endpoint must be fully transactional
+
+Inventory deduction, meal mark-complete, and nutrition log creation must all run inside a single `db.transaction()`. A partial failure (e.g. log insert fails) previously left inventory decremented with no completion record.
+
+## meals.tsx expand/log state model
+
+`expandedPlanMealId` (not a boolean) tracks which AI plan meal is expanded. `loggedMealId` drives a 1.5 s "Logged ✓" inline state before the card collapses. Both must be cleared on delete/regenerate success to avoid showing a stale expanded card.

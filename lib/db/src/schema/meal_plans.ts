@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, numeric, boolean, date, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, numeric, boolean, date, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -14,7 +14,11 @@ export const mealPlansTable = pgTable("meal_plans", {
   status: text("status").notNull().default("active"), // draft | active
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (t) => [
+  // Enforce one plan per user per day at the DB level — prevents duplicates
+  // from concurrent AI generate requests or multiple POST /meal-plans calls.
+  uniqueIndex("meal_plans_user_date_unique_idx").on(t.userId, t.date),
+]);
 
 export const mealPlanMealsTable = pgTable("meal_plan_meals", {
   id: serial("id").primaryKey(),

@@ -1,7 +1,7 @@
 /**
  * AI Meal Planner — shared logic for generating and regenerating meal plans.
  */
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import {
   db,
   mealPlansTable,
@@ -226,42 +226,54 @@ ${extraNotes ? `\nExtra notes: ${extraNotes}` : ""}`;
   const parsed = JSON.parse(content) as { meals?: AIMeal[] };
   const meals = parsed.meals ?? [];
 
-  const [plan] = await db
-    .insert(mealPlansTable)
-    .values({ userId, date, name: `Meal Plan — ${date}`, status: "active" })
-    .returning();
+  // Replace any existing plan for this user/date before creating the new one.
+  // Wrapped in a transaction so concurrent AI generate requests cannot both
+  // insert a plan for the same (userId, date) — one will complete cleanly,
+  // the other will fail on the unique index and surface a 500 to the client.
+  const plan = await db.transaction(async (tx) => {
+    await tx
+      .delete(mealPlansTable)
+      .where(and(eq(mealPlansTable.userId, userId), eq(mealPlansTable.date, date)));
 
-  for (const aiMeal of meals) {
-    const [mealRow] = await db
-      .insert(mealPlanMealsTable)
-      .values({
-        planId: plan.id,
-        name: aiMeal.name,
-        mealType: aiMeal.mealType,
-        scheduledTime: aiMeal.scheduledTime,
-        calories: String(aiMeal.calories ?? 0),
-        proteinG: String(aiMeal.proteinG ?? 0),
-        carbsG: String(aiMeal.carbsG ?? 0),
-        fatG: String(aiMeal.fatG ?? 0),
-        notes: aiMeal.notes,
-        prepInstructions: aiMeal.prepInstructions,
-        cookingTimeMinutes: aiMeal.cookingTimeMinutes,
-      })
+    const [newPlan] = await tx
+      .insert(mealPlansTable)
+      .values({ userId, date, name: `Meal Plan — ${date}`, status: "active" })
       .returning();
 
-    for (const ing of aiMeal.ingredients ?? []) {
-      const matchedItem = matchIngredientToInventory(ing, inventory);
-      const sufficient = !!matchedItem && Number(matchedItem.quantity) >= ing.quantityG;
-      await db.insert(mealPlanIngredientsTable).values({
-        mealId: mealRow.id,
-        name: ing.name,
-        quantityG: String(ing.quantityG),
-        unit: ing.unit ?? "g",
-        available: sufficient,
-        inventoryItemId: matchedItem?.id ?? null,
-      });
+    for (const aiMeal of meals) {
+      const [mealRow] = await tx
+        .insert(mealPlanMealsTable)
+        .values({
+          planId: newPlan.id,
+          name: aiMeal.name,
+          mealType: aiMeal.mealType,
+          scheduledTime: aiMeal.scheduledTime,
+          calories: String(aiMeal.calories ?? 0),
+          proteinG: String(aiMeal.proteinG ?? 0),
+          carbsG: String(aiMeal.carbsG ?? 0),
+          fatG: String(aiMeal.fatG ?? 0),
+          notes: aiMeal.notes,
+          prepInstructions: aiMeal.prepInstructions,
+          cookingTimeMinutes: aiMeal.cookingTimeMinutes,
+        })
+        .returning();
+
+      for (const ing of aiMeal.ingredients ?? []) {
+        const matchedItem = matchIngredientToInventory(ing, inventory);
+        const sufficient = !!matchedItem && Number(matchedItem.quantity) >= ing.quantityG;
+        await tx.insert(mealPlanIngredientsTable).values({
+          mealId: mealRow.id,
+          name: ing.name,
+          quantityG: String(ing.quantityG),
+          unit: ing.unit ?? "g",
+          available: sufficient,
+          inventoryItemId: matchedItem?.id ?? null,
+        });
+      }
     }
-  }
+
+    return newPlan;
+  });
 
   return { ...plan, meals };
 }
