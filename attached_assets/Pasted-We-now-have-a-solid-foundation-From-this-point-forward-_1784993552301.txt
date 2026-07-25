@@ -1,0 +1,433 @@
+We now have a solid foundation. From this point forward, I want you to act as a senior software engineer and product engineer, not just a code generator.
+
+Before writing code, analyze the existing architecture and extend it without breaking any existing functionality.
+
+The app's philosophy is:
+
+"This is an AI Nutrition Assistant. It should reduce decisions for the user by planning meals, managing food inventory, tracking nutrition, managing groceries, reminding the user, and adapting to their lifestyle."
+
+The AI should always make decisions using:
+
+- User profile
+- Fitness goal
+- Daily nutrition targets
+- Health conditions
+- Allergies
+- Food intolerances
+- Digestive issues
+- Food preferences
+- Current inventory
+- Grocery routine
+- Meal history
+- Supplement schedule
+
+----------------------------------------------------
+1. AI MEAL PLANNING ENGINE
+----------------------------------------------------
+
+Create a real AI meal planner.
+
+The user should have a button:
+
+"Generate My Meal Plan"
+
+The generated meals must be based on:
+
+- Calories remaining
+- Protein target
+- Carbohydrate target
+- Fat target
+- Inventory
+- Health profile
+- Diet preferences
+- Number of meals per day
+
+Every generated meal must include:
+
+- Meal name
+- Meal time
+- Ingredients
+- Quantity of every ingredient
+- Calories
+- Protein
+- Carbs
+- Fat
+
+Users can:
+
+- Edit meal
+- Delete meal
+- Duplicate meal
+- Regenerate only one meal
+- Create manual meals
+
+Whenever a meal changes, nutrition totals must automatically update.
+
+----------------------------------------------------
+2. SMART INVENTORY VALIDATION
+----------------------------------------------------
+
+Every ingredient used inside a meal must exist in inventory.
+
+If an ingredient is missing:
+
+Show:
+
+"This ingredient is not available."
+
+Offer:
+
+- Replace with inventory alternative
+- Add to Grocery List
+- Add to Inventory
+
+Never silently ignore missing ingredients.
+
+----------------------------------------------------
+3. AI INGREDIENT REPLACEMENT
+----------------------------------------------------
+
+If a planned ingredient is unavailable:
+
+Example:
+
+Chicken unavailable.
+
+AI automatically searches inventory for another protein.
+
+Possible replacements:
+
+Turkey
+Ground Beef
+Fish
+Eggs
+Tofu
+
+The replacement should stay as close as possible to the same nutrition target.
+
+Explain the reason.
+
+Example:
+
+"Chicken is unavailable. Replaced with Ground Beef because it matches today's protein target."
+
+----------------------------------------------------
+4. SMART GROCERY INTELLIGENCE
+----------------------------------------------------
+
+The grocery list must become intelligent.
+
+Instead of a manual checklist:
+
+The AI should compare:
+
+- Current inventory
+- Planned meals
+- User consumption
+- Shopping schedule
+
+Then calculate:
+
+Current quantity
+
+Required quantity
+
+Amount to buy
+
+Example:
+
+Chicken Breast
+
+Current:
+500g
+
+Required:
+2kg
+
+Buy:
+1.5kg
+
+Reason:
+
+Needed for next week's meals.
+
+Do this for every inventory item.
+
+Also support:
+
+- Weekly shopping
+- Every 15 days
+- Monthly
+- Custom schedule
+
+Before shopping day automatically prepare the grocery list.
+
+----------------------------------------------------
+5. SMART FOOD CONSUMPTION
+----------------------------------------------------
+
+Whenever a meal is marked complete:
+
+Automatically reduce inventory quantities.
+
+Example:
+
+Chicken
+
+2000g
+
+↓
+
+1800g
+
+Nutrition progress must also update automatically.
+
+----------------------------------------------------
+6. FOOD READINESS (FREEZER SYSTEM)
+----------------------------------------------------
+
+Every inventory item already has:
+
+Fridge
+
+Freezer
+
+Pantry
+
+Now create a Smart Preparation System.
+
+If tomorrow's meal requires food stored in the freezer:
+
+Automatically create a reminder the evening before.
+
+Example:
+
+"Tomorrow's lunch requires Chicken Breast.
+
+Move 200g from the freezer to the fridge tonight so it is ready."
+
+Buttons:
+
+Done
+
+Remind Me Later
+
+Change Meal
+
+If the reminder is ignored:
+
+The AI should automatically suggest another meal using available inventory.
+
+----------------------------------------------------
+7. SUPPLEMENT MANAGEMENT
+----------------------------------------------------
+
+Treat supplements exactly like inventory.
+
+Users can create:
+
+Supplement Name
+
+Dose
+
+Schedule
+
+Frequency
+
+Current quantity
+
+Reminder time
+
+Track remaining quantity.
+
+Predict when supplements will run out.
+
+Automatically include supplements inside grocery planning.
+
+Example:
+
+Creatine
+
+Remaining:
+50g
+
+Estimated:
+10 days
+
+Suggestion:
+
+Add Creatine to grocery list.
+
+----------------------------------------------------
+8. MEAL PREPARATION ASSISTANT
+----------------------------------------------------
+
+This is NOT a separate page.
+
+It is a contextual helper.
+
+When a meal is due:
+
+Show a small button beside the meal:
+
+"👨‍🍳 Help Me Prepare"
+
+When pressed:
+
+Open a modal.
+
+The modal shows:
+
+Ingredients
+
+Required quantities
+
+Preparation steps
+
+Cooking instructions
+
+Cooking time
+
+Buttons:
+
+Meal Prepared
+
+Replace Meal
+
+Close
+
+Do not make recipes a primary feature.
+
+They are simply there to help users prepare meals.
+
+----------------------------------------------------
+9. HEALTH & DIGESTION TRACKING
+----------------------------------------------------
+
+Allow users to log:
+
+Gas
+
+Bloating
+
+Energy
+
+Hunger
+
+Sleep quality
+
+After enough data exists:
+
+The AI should identify patterns.
+
+Example:
+
+"You often report bloating after dairy."
+
+Provide suggestions only.
+
+Never diagnose medical conditions.
+
+----------------------------------------------------
+10. HOME DASHBOARD REDESIGN
+----------------------------------------------------
+
+The Dashboard should become the user's daily assistant.
+
+Instead of only charts, show:
+
+Good Morning
+
+Today's Plan
+
+Breakfast
+
+Lunch
+
+Dinner
+
+Supplements
+
+Workout
+
+Preparation reminders
+
+Freezer reminders
+
+Shopping reminders
+
+Nutrition remaining
+
+Calories remaining
+
+Protein remaining
+
+Carbs remaining
+
+Fat remaining
+
+Inventory alerts
+
+Examples:
+
+Eggs running low
+
+Chicken unavailable
+
+Creatine low
+
+The Dashboard should immediately answer:
+
+"What do I need to do today?"
+
+----------------------------------------------------
+11. REMOVE AI AS A MAIN TAB
+----------------------------------------------------
+
+The AI should not be a primary bottom navigation tab.
+
+Instead embed AI throughout the application.
+
+Examples:
+
+Dashboard:
+"What should I eat now?"
+
+Meals:
+"Suggest another meal"
+
+Inventory:
+"What am I missing?"
+
+Grocery:
+"Optimize shopping list"
+
+Keep the AI route internally if needed, but remove it from the bottom navigation.
+
+----------------------------------------------------
+12. CODE QUALITY
+----------------------------------------------------
+
+Do not rewrite existing working code.
+
+Extend the current architecture.
+
+Keep everything modular.
+
+Reuse existing components.
+
+Avoid duplicate logic.
+
+Maintain mobile-first design.
+
+Test every new feature before moving to the next one.
+
+At the end, provide a summary of:
+
+- Database changes
+- New API endpoints
+- New screens
+- Components created
+- Existing components updated
+- Features completed
+- Remaining work
