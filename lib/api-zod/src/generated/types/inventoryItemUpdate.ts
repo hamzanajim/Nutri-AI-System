@@ -5,11 +5,19 @@
  * NutriAI — AI Nutrition Assistant API
  * OpenAPI spec version: 0.1.0
  */
+import type { InventoryItemUpdateCategory } from './inventoryItemUpdateCategory';
+import type { InventoryItemUpdateStorageLocation } from './inventoryItemUpdateStorageLocation';
 
 export interface InventoryItemUpdate {
   name?: string;
+  category?: InventoryItemUpdateCategory;
   quantity?: number;
   unit?: string;
-  expiryDate?: Date;
+  storageLocation?: InventoryItemUpdateStorageLocation;
+  expirationDate?: Date;
+  caloriesPer100g?: number;
+  proteinPer100g?: number;
+  carbsPer100g?: number;
+  fatPer100g?: number;
   notes?: string;
 }

@@ -19,13 +19,36 @@ function serializeItem(item: typeof inventoryTable.$inferSelect) {
     userId: item.userId,
     foodId: item.foodId ?? null,
     name: item.name,
+    category: item.category ?? null,
     quantity: Number(item.quantity),
     unit: item.unit,
-    expiryDate: item.expiryDate ?? null,
+    storageLocation: item.storageLocation ?? null,
+    expirationDate: item.expiryDate ?? null, // DB column expiryDate → API field expirationDate
+    caloriesPer100g: item.caloriesPer100g !== null && item.caloriesPer100g !== undefined ? Number(item.caloriesPer100g) : null,
+    proteinPer100g: item.proteinPer100g !== null && item.proteinPer100g !== undefined ? Number(item.proteinPer100g) : null,
+    carbsPer100g: item.carbsPer100g !== null && item.carbsPer100g !== undefined ? Number(item.carbsPer100g) : null,
+    fatPer100g: item.fatPer100g !== null && item.fatPer100g !== undefined ? Number(item.fatPer100g) : null,
     notes: item.notes ?? null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
+}
+
+function extractValues(data: Record<string, unknown>) {
+  const v: Record<string, unknown> = {};
+  if (data.name !== undefined) v.name = data.name;
+  if (data.category !== undefined) v.category = data.category;
+  if (data.quantity !== undefined) v.quantity = String(data.quantity);
+  if (data.unit !== undefined) v.unit = data.unit;
+  if (data.storageLocation !== undefined) v.storageLocation = data.storageLocation;
+  // API uses expirationDate, DB uses expiryDate
+  if (data.expirationDate !== undefined) v.expiryDate = data.expirationDate;
+  if (data.caloriesPer100g !== undefined) v.caloriesPer100g = data.caloriesPer100g !== null ? String(data.caloriesPer100g) : null;
+  if (data.proteinPer100g !== undefined) v.proteinPer100g = data.proteinPer100g !== null ? String(data.proteinPer100g) : null;
+  if (data.carbsPer100g !== undefined) v.carbsPer100g = data.carbsPer100g !== null ? String(data.carbsPer100g) : null;
+  if (data.fatPer100g !== undefined) v.fatPer100g = data.fatPer100g !== null ? String(data.fatPer100g) : null;
+  if (data.notes !== undefined) v.notes = data.notes;
+  return v;
 }
 
 router.get("/inventory", requireAuth, async (req, res): Promise<void> => {
@@ -46,17 +69,16 @@ router.post("/inventory", requireAuth, async (req, res): Promise<void> => {
   }
 
   const data = parsed.data as Record<string, unknown>;
+  const values = extractValues(data);
 
   const [item] = await db
     .insert(inventoryTable)
     .values({
       userId: req.auth!.userId,
-      foodId: (data.foodId as number) ?? null,
-      name: data.name as string,
-      quantity: String(data.quantity),
-      unit: data.unit as string,
-      expiryDate: (data.expiryDate as string) ?? null,
-      notes: (data.notes as string) ?? null,
+      name: values.name as string,
+      quantity: values.quantity as string,
+      unit: values.unit as string,
+      ...values,
     })
     .returning();
 
@@ -99,12 +121,7 @@ router.patch("/inventory/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   const data = parsed.data as Record<string, unknown>;
-  const updates: Record<string, unknown> = {};
-  if (data.name !== undefined) updates.name = data.name;
-  if (data.quantity !== undefined) updates.quantity = String(data.quantity);
-  if (data.unit !== undefined) updates.unit = data.unit;
-  if (data.expiryDate !== undefined) updates.expiryDate = data.expiryDate;
-  if (data.notes !== undefined) updates.notes = data.notes;
+  const updates = extractValues(data);
 
   const [item] = await db
     .update(inventoryTable)

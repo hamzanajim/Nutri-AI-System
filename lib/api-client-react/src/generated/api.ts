@@ -48,6 +48,8 @@ import type {
   MealUpdate,
   MealWithItems,
   NutritionChatInput,
+  NutritionSuggestion,
+  NutritionSuggestionInput,
   NutritionTargets,
   Profile,
   ProfileInput,
@@ -831,6 +833,77 @@ export function useGetFood<TData = Awaited<ReturnType<typeof getFood>>, TError =
 
 
 
+
+export const getSuggestNutritionUrl = () => {
+
+
+
+
+  return `/api/foods/suggest-nutrition`
+}
+
+/**
+ * @summary Suggest nutritional info and category for a food by name
+ */
+export const suggestNutrition = async (nutritionSuggestionInput: NutritionSuggestionInput, options?: RequestInit): Promise<NutritionSuggestion> => {
+
+  return customFetch<NutritionSuggestion>(getSuggestNutritionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(nutritionSuggestionInput)
+  }
+);}
+
+
+
+
+
+export const getSuggestNutritionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestNutrition>>, TError,{data: BodyType<NutritionSuggestionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suggestNutrition>>, TError,{data: BodyType<NutritionSuggestionInput>}, TContext> => {
+
+const mutationKey = ['suggestNutrition'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suggestNutrition>>, {data: BodyType<NutritionSuggestionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  suggestNutrition(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuggestNutritionMutationResult = NonNullable<Awaited<ReturnType<typeof suggestNutrition>>>
+    export type SuggestNutritionMutationBody = BodyType<NutritionSuggestionInput>
+    export type SuggestNutritionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Suggest nutritional info and category for a food by name
+ */
+export const useSuggestNutrition = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestNutrition>>, TError,{data: BodyType<NutritionSuggestionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suggestNutrition>>,
+        TError,
+        {data: BodyType<NutritionSuggestionInput>},
+        TContext
+      > => {
+      return useMutation(getSuggestNutritionMutationOptions(options));
+    }
 
 export const getListMealsUrl = (params?: ListMealsParams,) => {
   const normalizedParams = new URLSearchParams();

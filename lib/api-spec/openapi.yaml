@@ -264,6 +264,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /foods/suggest-nutrition:
+    post:
+      operationId: suggestNutrition
+      tags: [foods]
+      summary: Suggest nutritional info and category for a food by name
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NutritionSuggestionInput"
+      responses:
+        "200":
+          description: Suggested nutrition info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionSuggestion"
+
   # ─── Meals ───────────────────────────────────────────────────────────────────
 
   /meals:
@@ -1317,13 +1338,27 @@ components:
           type: ["integer", "null"]
         name:
           type: string
+        category:
+          type: ["string", "null"]
+          enum: [protein, carbs, vegetables, fruits, dairy, fats, pantry, drinks, supplements, null]
         quantity:
           type: number
         unit:
           type: string
-        expiryDate:
+        storageLocation:
+          type: ["string", "null"]
+          enum: [fridge, freezer, pantry, null]
+        expirationDate:
           type: ["string", "null"]
           format: date
+        caloriesPer100g:
+          type: ["number", "null"]
+        proteinPer100g:
+          type: ["number", "null"]
+        carbsPer100g:
+          type: ["number", "null"]
+        fatPer100g:
+          type: ["number", "null"]
         notes:
           type: ["string", "null"]
         createdAt:
@@ -1344,17 +1379,29 @@ components:
     InventoryItemInput:
       type: object
       properties:
-        foodId:
-          type: integer
         name:
           type: string
+        category:
+          type: string
+          enum: [protein, carbs, vegetables, fruits, dairy, fats, pantry, drinks, supplements]
         quantity:
           type: number
         unit:
           type: string
-        expiryDate:
+        storageLocation:
+          type: string
+          enum: [fridge, freezer, pantry]
+        expirationDate:
           type: string
           format: date
+        caloriesPer100g:
+          type: number
+        proteinPer100g:
+          type: number
+        carbsPer100g:
+          type: number
+        fatPer100g:
+          type: number
         notes:
           type: string
       required:
@@ -1367,15 +1414,59 @@ components:
       properties:
         name:
           type: string
+        category:
+          type: string
+          enum: [protein, carbs, vegetables, fruits, dairy, fats, pantry, drinks, supplements]
         quantity:
           type: number
         unit:
           type: string
-        expiryDate:
+        storageLocation:
+          type: string
+          enum: [fridge, freezer, pantry]
+        expirationDate:
           type: string
           format: date
+        caloriesPer100g:
+          type: number
+        proteinPer100g:
+          type: number
+        carbsPer100g:
+          type: number
+        fatPer100g:
+          type: number
         notes:
           type: string
+
+    # ── Nutrition Suggest ──────────────────────────────────────────────────────
+
+    NutritionSuggestionInput:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    NutritionSuggestion:
+      type: object
+      properties:
+        found:
+          type: boolean
+        category:
+          type: ["string", "null"]
+        defaultUnit:
+          type: ["string", "null"]
+        caloriesPer100g:
+          type: ["number", "null"]
+        proteinPer100g:
+          type: ["number", "null"]
+        carbsPer100g:
+          type: ["number", "null"]
+        fatPer100g:
+          type: ["number", "null"]
+      required:
+        - found
 
     # ── Grocery Lists ─────────────────────────────────────────────────────────
 

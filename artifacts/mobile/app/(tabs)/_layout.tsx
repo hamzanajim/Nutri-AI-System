@@ -19,13 +19,13 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'fork.knife', selected: 'fork.knife' }} />
         <Label>Meals</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="inventory">
+        <Icon sf={{ default: 'refrigerator', selected: 'refrigerator.fill' }} />
+        <Label>Inventory</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="grocery">
         <Icon sf={{ default: 'cart', selected: 'cart.fill' }} />
         <Label>Grocery</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="ai">
-        <Icon sf={{ default: 'brain', selected: 'brain' }} />
-        <Label>AI</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: 'person', selected: 'person.fill' }} />
@@ -90,6 +90,18 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="inventory"
+        options={{
+          title: 'Inventory',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="refrigerator" tintColor={color} size={22} />
+            ) : (
+              <Feather name="package" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
         name="grocery"
         options={{
           title: 'Grocery',
@@ -104,13 +116,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="ai"
         options={{
-          title: 'AI',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="brain" tintColor={color} size={22} />
-            ) : (
-              <Feather name="cpu" size={22} color={color} />
-            ),
+          href: null, // hidden from tab bar — still accessible as route
         }}
       />
       <Tabs.Screen

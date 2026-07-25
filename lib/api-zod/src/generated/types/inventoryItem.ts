@@ -5,6 +5,8 @@
  * NutriAI — AI Nutrition Assistant API
  * OpenAPI spec version: 0.1.0
  */
+import type { InventoryItemCategory } from './inventoryItemCategory';
+import type { InventoryItemStorageLocation } from './inventoryItemStorageLocation';
 
 export interface InventoryItem {
   id: number;
@@ -12,10 +14,22 @@ export interface InventoryItem {
   /** @nullable */
   foodId?: number | null;
   name: string;
+  /** @nullable */
+  category?: InventoryItemCategory;
   quantity: number;
   unit: string;
   /** @nullable */
-  expiryDate?: Date | null;
+  storageLocation?: InventoryItemStorageLocation;
+  /** @nullable */
+  expirationDate?: Date | null;
+  /** @nullable */
+  caloriesPer100g?: number | null;
+  /** @nullable */
+  proteinPer100g?: number | null;
+  /** @nullable */
+  carbsPer100g?: number | null;
+  /** @nullable */
+  fatPer100g?: number | null;
   /** @nullable */
   notes?: string | null;
   createdAt: Date;

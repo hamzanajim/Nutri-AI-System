@@ -380,37 +380,158 @@ export interface MealItemInput {
   fiberPer100g?: number;
 }
 
+/**
+ * @nullable
+ */
+export type InventoryItemCategory = typeof InventoryItemCategory[keyof typeof InventoryItemCategory] | null;
+
+
+export const InventoryItemCategory = {
+  protein: 'protein',
+  carbs: 'carbs',
+  vegetables: 'vegetables',
+  fruits: 'fruits',
+  dairy: 'dairy',
+  fats: 'fats',
+  pantry: 'pantry',
+  drinks: 'drinks',
+  supplements: 'supplements',
+} as const;
+
+/**
+ * @nullable
+ */
+export type InventoryItemStorageLocation = typeof InventoryItemStorageLocation[keyof typeof InventoryItemStorageLocation] | null;
+
+
+export const InventoryItemStorageLocation = {
+  fridge: 'fridge',
+  freezer: 'freezer',
+  pantry: 'pantry',
+} as const;
+
 export interface InventoryItem {
   id: number;
   userId: number;
   /** @nullable */
   foodId?: number | null;
   name: string;
+  /** @nullable */
+  category?: InventoryItemCategory;
   quantity: number;
   unit: string;
   /** @nullable */
-  expiryDate?: string | null;
+  storageLocation?: InventoryItemStorageLocation;
+  /** @nullable */
+  expirationDate?: string | null;
+  /** @nullable */
+  caloriesPer100g?: number | null;
+  /** @nullable */
+  proteinPer100g?: number | null;
+  /** @nullable */
+  carbsPer100g?: number | null;
+  /** @nullable */
+  fatPer100g?: number | null;
   /** @nullable */
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
+export type InventoryItemInputCategory = typeof InventoryItemInputCategory[keyof typeof InventoryItemInputCategory];
+
+
+export const InventoryItemInputCategory = {
+  protein: 'protein',
+  carbs: 'carbs',
+  vegetables: 'vegetables',
+  fruits: 'fruits',
+  dairy: 'dairy',
+  fats: 'fats',
+  pantry: 'pantry',
+  drinks: 'drinks',
+  supplements: 'supplements',
+} as const;
+
+export type InventoryItemInputStorageLocation = typeof InventoryItemInputStorageLocation[keyof typeof InventoryItemInputStorageLocation];
+
+
+export const InventoryItemInputStorageLocation = {
+  fridge: 'fridge',
+  freezer: 'freezer',
+  pantry: 'pantry',
+} as const;
+
 export interface InventoryItemInput {
-  foodId?: number;
   name: string;
+  category?: InventoryItemInputCategory;
   quantity: number;
   unit: string;
-  expiryDate?: string;
+  storageLocation?: InventoryItemInputStorageLocation;
+  expirationDate?: string;
+  caloriesPer100g?: number;
+  proteinPer100g?: number;
+  carbsPer100g?: number;
+  fatPer100g?: number;
   notes?: string;
 }
 
+export type InventoryItemUpdateCategory = typeof InventoryItemUpdateCategory[keyof typeof InventoryItemUpdateCategory];
+
+
+export const InventoryItemUpdateCategory = {
+  protein: 'protein',
+  carbs: 'carbs',
+  vegetables: 'vegetables',
+  fruits: 'fruits',
+  dairy: 'dairy',
+  fats: 'fats',
+  pantry: 'pantry',
+  drinks: 'drinks',
+  supplements: 'supplements',
+} as const;
+
+export type InventoryItemUpdateStorageLocation = typeof InventoryItemUpdateStorageLocation[keyof typeof InventoryItemUpdateStorageLocation];
+
+
+export const InventoryItemUpdateStorageLocation = {
+  fridge: 'fridge',
+  freezer: 'freezer',
+  pantry: 'pantry',
+} as const;
+
 export interface InventoryItemUpdate {
   name?: string;
+  category?: InventoryItemUpdateCategory;
   quantity?: number;
   unit?: string;
-  expiryDate?: string;
+  storageLocation?: InventoryItemUpdateStorageLocation;
+  expirationDate?: string;
+  caloriesPer100g?: number;
+  proteinPer100g?: number;
+  carbsPer100g?: number;
+  fatPer100g?: number;
   notes?: string;
+}
+
+export interface NutritionSuggestionInput {
+  name: string;
+}
+
+export interface NutritionSuggestion {
+  found: boolean;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  defaultUnit?: string | null;
+  /** @nullable */
+  caloriesPer100g?: number | null;
+  /** @nullable */
+  proteinPer100g?: number | null;
+  /** @nullable */
+  carbsPer100g?: number | null;
+  /** @nullable */
+  fatPer100g?: number | null;
 }
 
 export interface GroceryListItem {

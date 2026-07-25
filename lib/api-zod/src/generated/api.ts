@@ -294,6 +294,24 @@ export const GetFoodResponse = zod.object({
 
 
 /**
+ * @summary Suggest nutritional info and category for a food by name
+ */
+export const SuggestNutritionBody = zod.object({
+  "name": zod.string()
+})
+
+export const SuggestNutritionResponse = zod.object({
+  "found": zod.boolean(),
+  "category": zod.string().nullish(),
+  "defaultUnit": zod.string().nullish(),
+  "caloriesPer100g": zod.number().nullish(),
+  "proteinPer100g": zod.number().nullish(),
+  "carbsPer100g": zod.number().nullish(),
+  "fatPer100g": zod.number().nullish()
+})
+
+
+/**
  * @summary List meals for the current user
  */
 export const ListMealsQueryParams = zod.object({
@@ -501,9 +519,15 @@ export const ListInventoryResponseItem = zod.object({
   "userId": zod.number(),
   "foodId": zod.number().nullish(),
   "name": zod.string(),
+  "category": zod.union([zod.literal('protein'),zod.literal('carbs'),zod.literal('vegetables'),zod.literal('fruits'),zod.literal('dairy'),zod.literal('fats'),zod.literal('pantry'),zod.literal('drinks'),zod.literal('supplements'),zod.literal(null)]).nullish(),
   "quantity": zod.number(),
   "unit": zod.string(),
-  "expiryDate": zod.coerce.date().nullish(),
+  "storageLocation": zod.union([zod.literal('fridge'),zod.literal('freezer'),zod.literal('pantry'),zod.literal(null)]).nullish(),
+  "expirationDate": zod.coerce.date().nullish(),
+  "caloriesPer100g": zod.number().nullish(),
+  "proteinPer100g": zod.number().nullish(),
+  "carbsPer100g": zod.number().nullish(),
+  "fatPer100g": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -515,11 +539,16 @@ export const ListInventoryResponse = zod.array(ListInventoryResponseItem)
  * @summary Add an item to inventory
  */
 export const CreateInventoryItemBody = zod.object({
-  "foodId": zod.number().optional(),
   "name": zod.string(),
+  "category": zod.enum(['protein', 'carbs', 'vegetables', 'fruits', 'dairy', 'fats', 'pantry', 'drinks', 'supplements']).optional(),
   "quantity": zod.number(),
   "unit": zod.string(),
-  "expiryDate": zod.coerce.date().optional(),
+  "storageLocation": zod.enum(['fridge', 'freezer', 'pantry']).optional(),
+  "expirationDate": zod.coerce.date().optional(),
+  "caloriesPer100g": zod.number().optional(),
+  "proteinPer100g": zod.number().optional(),
+  "carbsPer100g": zod.number().optional(),
+  "fatPer100g": zod.number().optional(),
   "notes": zod.string().optional()
 })
 
@@ -528,9 +557,15 @@ export const CreateInventoryItemResponse = zod.object({
   "userId": zod.number(),
   "foodId": zod.number().nullish(),
   "name": zod.string(),
+  "category": zod.union([zod.literal('protein'),zod.literal('carbs'),zod.literal('vegetables'),zod.literal('fruits'),zod.literal('dairy'),zod.literal('fats'),zod.literal('pantry'),zod.literal('drinks'),zod.literal('supplements'),zod.literal(null)]).nullish(),
   "quantity": zod.number(),
   "unit": zod.string(),
-  "expiryDate": zod.coerce.date().nullish(),
+  "storageLocation": zod.union([zod.literal('fridge'),zod.literal('freezer'),zod.literal('pantry'),zod.literal(null)]).nullish(),
+  "expirationDate": zod.coerce.date().nullish(),
+  "caloriesPer100g": zod.number().nullish(),
+  "proteinPer100g": zod.number().nullish(),
+  "carbsPer100g": zod.number().nullish(),
+  "fatPer100g": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -549,9 +584,15 @@ export const GetInventoryItemResponse = zod.object({
   "userId": zod.number(),
   "foodId": zod.number().nullish(),
   "name": zod.string(),
+  "category": zod.union([zod.literal('protein'),zod.literal('carbs'),zod.literal('vegetables'),zod.literal('fruits'),zod.literal('dairy'),zod.literal('fats'),zod.literal('pantry'),zod.literal('drinks'),zod.literal('supplements'),zod.literal(null)]).nullish(),
   "quantity": zod.number(),
   "unit": zod.string(),
-  "expiryDate": zod.coerce.date().nullish(),
+  "storageLocation": zod.union([zod.literal('fridge'),zod.literal('freezer'),zod.literal('pantry'),zod.literal(null)]).nullish(),
+  "expirationDate": zod.coerce.date().nullish(),
+  "caloriesPer100g": zod.number().nullish(),
+  "proteinPer100g": zod.number().nullish(),
+  "carbsPer100g": zod.number().nullish(),
+  "fatPer100g": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
@@ -567,9 +608,15 @@ export const UpdateInventoryItemParams = zod.object({
 
 export const UpdateInventoryItemBody = zod.object({
   "name": zod.string().optional(),
+  "category": zod.enum(['protein', 'carbs', 'vegetables', 'fruits', 'dairy', 'fats', 'pantry', 'drinks', 'supplements']).optional(),
   "quantity": zod.number().optional(),
   "unit": zod.string().optional(),
-  "expiryDate": zod.coerce.date().optional(),
+  "storageLocation": zod.enum(['fridge', 'freezer', 'pantry']).optional(),
+  "expirationDate": zod.coerce.date().optional(),
+  "caloriesPer100g": zod.number().optional(),
+  "proteinPer100g": zod.number().optional(),
+  "carbsPer100g": zod.number().optional(),
+  "fatPer100g": zod.number().optional(),
   "notes": zod.string().optional()
 })
 
@@ -578,9 +625,15 @@ export const UpdateInventoryItemResponse = zod.object({
   "userId": zod.number(),
   "foodId": zod.number().nullish(),
   "name": zod.string(),
+  "category": zod.union([zod.literal('protein'),zod.literal('carbs'),zod.literal('vegetables'),zod.literal('fruits'),zod.literal('dairy'),zod.literal('fats'),zod.literal('pantry'),zod.literal('drinks'),zod.literal('supplements'),zod.literal(null)]).nullish(),
   "quantity": zod.number(),
   "unit": zod.string(),
-  "expiryDate": zod.coerce.date().nullish(),
+  "storageLocation": zod.union([zod.literal('fridge'),zod.literal('freezer'),zod.literal('pantry'),zod.literal(null)]).nullish(),
+  "expirationDate": zod.coerce.date().nullish(),
+  "caloriesPer100g": zod.number().nullish(),
+  "proteinPer100g": zod.number().nullish(),
+  "carbsPer100g": zod.number().nullish(),
+  "fatPer100g": zod.number().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
