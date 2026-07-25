@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -38,7 +38,13 @@ import {
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
+import { useLocalSearchParams } from 'expo-router';
 import MealPrepModal from '@/components/MealPrepModal';
+import {
+  scheduleMealNotifications,
+  cancelMealNotification,
+  cancelPlanNotifications,
+} from '@/hooks/useMealNotifications';
 
 const TODAY = new Date().toISOString().split('T')[0];
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -100,6 +106,7 @@ export default function MealsScreen() {
   const [expandedPlanMealId, setExpandedPlanMealId] = useState<number | null>(null);
   const [loggedMealId, setLoggedMealId] = useState<number | null>(null); // brief "Logged ✓" state
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  const justGeneratedRef = useRef(false); // set in generatePlan.onSuccess, consumed by planMeals effect
   const [replacingIngId, setReplacingIngId] = useState<number | null>(null); // tracks in-progress replace
   const [addingGroceryIngId, setAddingGroceryIngId] = useState<number | null>(null);
   const [showMissingFor, setShowMissingFor] = useState<number | null>(null); // which meal has missing section expanded
@@ -139,6 +146,8 @@ export default function MealsScreen() {
         qc.invalidateQueries({ queryKey: getGetMealPlanQueryKey(data.id) });
         qc.invalidateQueries({ queryKey: getGetDashboardTodayQueryKey({ date: TODAY }) });
         setGeneratingPlan(false);
+        // Signal the planMeals effect to schedule notifications once data arrives
+        justGeneratedRef.current = true;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       },
       onError: () => {
@@ -182,7 +191,15 @@ export default function MealsScreen() {
         }
         // Re-open the expanded card for the newly regenerated meal
         if (data && typeof data === 'object' && 'id' in data) {
-          setExpandedPlanMealId((data as { id: number }).id);
+          const regenerated = data as { id: number; name: string; mealType: string; scheduledTime?: string | null };
+          setExpandedPlanMealId(regenerated.id);
+          // Cancel the old notification (same ID since the row is updated in-place)
+          // then schedule a fresh one with the new meal details
+          cancelMealNotification(regenerated.id).catch(() => null);
+          scheduleMealNotifications(
+            [{ id: regenerated.id, name: regenerated.name, mealType: regenerated.mealType, scheduledTime: regenerated.scheduledTime }],
+            selectedDate
+          ).catch(() => null);
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       },
@@ -198,6 +215,9 @@ export default function MealsScreen() {
         }
         qc.invalidateQueries({ queryKey: getListMealsQueryKey({ date: selectedDate }) });
         qc.invalidateQueries({ queryKey: getGetDashboardTodayQueryKey({ date: TODAY }) });
+
+        // Cancel the pending meal reminder — no need to remind about a meal already logged
+        cancelMealNotification(variables.mealId).catch(() => null);
 
         // Show brief "Logged ✓" state then collapse
         setLoggedMealId(variables.mealId);
@@ -334,6 +354,33 @@ export default function MealsScreen() {
 
   const planMeals = (planDetail as unknown as { meals?: PlanMeal[] } | undefined)?.meals as PlanMeal[] | undefined;
 
+  // ── Schedule notifications once after a fresh plan is generated ──
+  useEffect(() => {
+    if (justGeneratedRef.current && planMeals && planMeals.length > 0) {
+      justGeneratedRef.current = false;
+      scheduleMealNotifications(
+        planMeals.map((m) => ({
+          id: m.id,
+          name: m.name,
+          mealType: m.mealType,
+          scheduledTime: m.scheduledTime,
+        })),
+        selectedDate
+      ).catch(() => null); // non-fatal — user may have denied permission
+    }
+  }, [planMeals, selectedDate]);
+
+  // ── Deep-link: expand a specific meal when navigated from a notification ──
+  const { expandMealId } = useLocalSearchParams<{ expandMealId?: string }>();
+  useEffect(() => {
+    if (expandMealId && planMeals) {
+      const id = parseInt(expandMealId, 10);
+      if (!isNaN(id)) {
+        setExpandedPlanMealId(id);
+      }
+    }
+  }, [expandMealId, planMeals]);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -378,7 +425,8 @@ export default function MealsScreen() {
             <Text style={styles.sectionTitle}>🤖 AI Meal Plan</Text>
             {todayPlanSummary && (
               <TouchableOpacity
-                onPress={() =>
+                onPress={() => {
+                  const mealIdsSnapshot = planMeals?.map((m) => m.id) ?? [];
                   Alert.alert(
                     'Delete Meal Plan',
                     'This will delete the entire AI-generated plan for this day.',
@@ -387,11 +435,14 @@ export default function MealsScreen() {
                       {
                         text: 'Delete Plan',
                         style: 'destructive',
-                        onPress: () => deletePlan.mutate({ id: todayPlanSummary.id }),
+                        onPress: () => {
+                          cancelPlanNotifications(mealIdsSnapshot).catch(() => null);
+                          deletePlan.mutate({ id: todayPlanSummary.id });
+                        },
                       },
                     ]
-                  )
-                }
+                  );
+                }}
               >
                 <Feather name="trash-2" size={16} color={colors.destructive} />
               </TouchableOpacity>
@@ -666,7 +717,10 @@ export default function MealsScreen() {
                                   {
                                     text: 'Remove',
                                     style: 'destructive',
-                                    onPress: () => deletePlanMeal.mutate({ id: todayPlanSummary.id, mealId: meal.id }),
+                                    onPress: () => {
+                                      cancelMealNotification(meal.id).catch(() => null);
+                                      deletePlanMeal.mutate({ id: todayPlanSummary.id, mealId: meal.id });
+                                    },
                                   },
                                 ])
                               }

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -11,10 +11,14 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
 import { AuthProvider } from '@/context/AuthContext';
+import {
+  useMealNotificationSetup,
+  useNotificationTapHandler,
+} from '@/hooks/useMealNotifications';
 
 // Configure API base URL for Expo (absolute URL required outside web proxy)
 setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
@@ -31,6 +35,20 @@ const queryClient = new QueryClient({
 });
 
 function RootLayoutNav() {
+  const router = useRouter();
+  useMealNotificationSetup();
+
+  // When user taps a meal reminder notification, deep-link to the Meals tab
+  // with the meal pre-expanded via a query param.
+  useNotificationTapHandler(
+    useCallback(
+      (mealId: number) => {
+        router.push(`/(tabs)/meals?expandMealId=${mealId}` as never);
+      },
+      [router]
+    )
+  );
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
